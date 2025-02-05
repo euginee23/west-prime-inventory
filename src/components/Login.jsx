@@ -1,0 +1,108 @@
+import { useState } from "react";
+import PropTypes from "prop-types";
+import axios from "axios";
+import logo from "../assets/west-prime-logo.ico";
+
+export default function Login({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/login`;
+      const response = await axios.post(apiUrl, {
+        username,
+        password,
+      });
+
+      if (response.data.token) {
+        onLogin(username, response.data.role, response.data.token);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Login failed");
+    }
+  };
+
+  return (
+    <div className="container">
+      <div className="row justify-content-center align-items-center">
+        <div className="col-12 col-md-5 text-center text-md-start">
+          <img
+            src={logo}
+            alt="West Prime Horizon Institute Logo"
+            className="img-fluid mb-4 animated fadeIn"
+            style={{
+              width: "200px",
+              maxWidth: "100%",
+              animationDuration: "1s",
+            }}
+          />
+          <h1 className="fw-bold mb-3 text-shadow">West Prime Inventory Management System</h1>
+          <p className="text-shadow lead">ICT Equipment Monitoring and Tracking System</p>
+        </div>
+
+        <div className="col-12 col-md-6">
+          <div
+            className="p-4 rounded shadow-lg mx-auto"
+            style={{
+              maxWidth: "400px",
+              width: "100%",
+              backgroundColor: "rgba(255, 255, 255, 0.65)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <form onSubmit={handleLogin}>
+              <div className="mb-2">
+                <label htmlFor="username" className="form-label text-dark">
+                  Username:
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  className="form-control"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  style={{ borderRadius: "0.375rem", boxShadow: "none" }}
+                />
+              </div>
+
+              <div className="mb-2">
+                <label htmlFor="password" className="form-label text-dark">
+                  Password:
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  className="form-control"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{ borderRadius: "0.375rem", boxShadow: "none" }}
+                />
+              </div>
+
+              {error && <p className="text-danger">{error}</p>}
+
+              <button
+                type="submit"
+                className="btn btn-success w-100 py-2 mt-3 rounded-3"
+                style={{ fontSize: "1.2rem", letterSpacing: "1px", transition: "background-color 0.3s ease" }}
+              >
+                LOG IN
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// PropTypes validation
+Login.propTypes = {
+  onLogin: PropTypes.func.isRequired,
+};
