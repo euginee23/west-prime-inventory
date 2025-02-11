@@ -13,12 +13,19 @@ export default function Login({ onLogin }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
+    setError("");
+  
     try {
       const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/login`;
       const response = await axios.post(apiUrl, { username, password });
-
+  
       if (response.data.token) {
+        localStorage.setItem("user_id", response.data.user_id);
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("role", response.data.role);
+        localStorage.setItem("first_name", response.data.first_name);
+        localStorage.setItem("last_name", response.data.last_name);
+  
         onLogin(username, response.data.role, response.data.token);
       }
     } catch (err) {
@@ -26,7 +33,7 @@ export default function Login({ onLogin }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  };  
 
   return (
     <div className="container">

@@ -1,42 +1,22 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
-import Loading from "react-loading"; // Import react-loading
+import { useState } from "react";
+import Loading from "react-loading";
+import ProfileSettings from "./common_components/ProfileSettings";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
+import { getLoggedInUser, logout } from "../utils/auth"; 
 
-export default function PersonnelPage({ onLogout }) {
-  const [activeSection, setActiveSection] = useState("profile");
-  const [userName, setUserName] = useState("");
-  const [isLoading, setIsLoading] = useState(true); // Loading state
+export default function PersonnelPage() {
+  const [activeSection, setActiveSection] = useState("dashboard");
+  const user = getLoggedInUser();
 
   const menuItems = [
-    { id: "profile", label: "My Profile" },
-    { id: "reports", label: "My Reports" },
+    { id: "dashboard", label: "Dashboard" },
+    { id: "scan", label: "Scan" },
+    { id: "track", label: "Track" },
+    { id: "equipments", label: "Equipments" },
+    { id: "reports", label: "Reports" },
+    { id: "profile-settings", label: "Profile Settings" },
   ];
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/user`;
-        const response = await axios.get(apiUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const { first_name, last_name } = response.data;
-        setUserName(`${first_name} ${last_name}`);
-      } catch (err) {
-        console.error("❌ Error fetching user data:", err);
-        onLogout();
-      } finally {
-        setIsLoading(false); // Stop loading once data is fetched
-      }
-    };
-
-    fetchUserData();
-  }, [onLogout]);
 
   return (
     <div
@@ -50,21 +30,11 @@ export default function PersonnelPage({ onLogout }) {
         position: "relative",
       }}
     >
-      {/* Show loader while fetching user data */}
-      {isLoading && (
-        <div
-          className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-          style={{ background: "rgba(255, 255, 255, 0.7)", borderRadius: "10px" }}
-        >
-          <Loading type="spin" color="#28a745" height={50} width={50} />
-        </div>
-      )}
-
       {/* Top Navigation */}
       <nav className="navbar navbar-expand-lg navbar-dark bg-dark" style={{ borderRadius: "10px 10px 0 0" }}>
         <div className="container-fluid">
           <a className="navbar-brand fw-bold" href="#">
-            {isLoading ? "Loading..." : `Hi, ${userName}`}
+            Hi, {user?.firstName || "Personnel"} {user?.lastName || ""}
           </a>
           <button
             className="navbar-toggler"
@@ -86,7 +56,6 @@ export default function PersonnelPage({ onLogout }) {
                       activeSection === item.id ? "fw-bold" : ""
                     }`}
                     onClick={() => setActiveSection(item.id)}
-                    disabled={isLoading}
                     style={{
                       textDecoration: "none",
                       fontSize: "1rem",
@@ -100,8 +69,7 @@ export default function PersonnelPage({ onLogout }) {
               <li className="nav-item">
                 <button
                   className="btn btn-danger text-white ms-3"
-                  onClick={onLogout}
-                  disabled={isLoading}
+                  onClick={logout} 
                   style={{
                     fontSize: "1rem",
                     padding: "5px 15px",
@@ -117,34 +85,21 @@ export default function PersonnelPage({ onLogout }) {
       </nav>
 
       {/* Main Content Area */}
-      <div className="container-fluid px-4 py-3">
-        {!isLoading ? (
-          <>
-            <h1 className="fw-bold mb-4 text-center text-md-start">
-              {menuItems.find((i) => i.id === activeSection)?.label}
-            </h1>
-
-            {/* Dynamic Content Based on Active Section */}
-            {activeSection === "profile" && (
-              <div>
-                <h3>My Profile</h3>
-                <p>View and update your personal details here.</p>
-              </div>
-            )}
-
-            {activeSection === "reports" && (
-              <div>
-                <h3>My Reports</h3>
-                <p>View the reports assigned to you.</p>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-center">
-            <Loading type="spin" color="#28a745" height={60} width={60} />
-            <p>Loading content...</p>
-          </div>
-        )}
+      <div
+        className="container-fluid px-4 py-3"
+        style={{
+          height: "calc(100vh - 75px)", 
+          overflowY: "auto", 
+        }}
+      >
+        <div className="row gx-3 gy-4">
+          {activeSection === "dashboard" && <div>Welcome to your dashboard.</div>}
+          {activeSection === "scan" && <div>Scan QR codes for quick item tracking.</div>}
+          {activeSection === "track" && <div>Track equipment and personnel activities.</div>}
+          {activeSection === "equipments" && <div>View and manage equipment inventory.</div>}
+          {activeSection === "reports" && <div>View reports assigned to you.</div>}
+          {activeSection === "profile-settings" && <ProfileSettings />}
+        </div>
       </div>
     </div>
   );
