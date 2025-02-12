@@ -11,7 +11,7 @@ export default function Laboratories() {
   const [name, setName] = useState("");
   const [number, setNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true); // Added for data loading state
+  const [isFetching, setIsFetching] = useState(true);
 
   useEffect(() => {
     fetchLaboratories();
@@ -19,7 +19,7 @@ export default function Laboratories() {
 
   const fetchLaboratories = async () => {
     try {
-      setIsFetching(true); // Start loading
+      setIsFetching(true);
       const response = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/laboratories`
       );
@@ -36,7 +36,7 @@ export default function Laboratories() {
       toast.error("Failed to load laboratories.");
       setLaboratories([]);
     } finally {
-      setIsFetching(false); // Stop loading
+      setIsFetching(false);
     }
   };
 
@@ -56,7 +56,7 @@ export default function Laboratories() {
       toast.success("✅ Laboratory added successfully!");
       setName("");
       setNumber("");
-      fetchLaboratories(); // Refresh list after adding
+      fetchLaboratories();
     } catch (err) {
       console.error("❌ Error adding laboratory:", err);
       toast.error("❌ Failed to add laboratory.");
@@ -66,73 +66,85 @@ export default function Laboratories() {
   };
 
   return (
-    <div className="container mt-4">
+    <div className="container-fluid mt-3 px-2">
       <ToastContainer />
 
-      {/* Add Laboratory Form */}
-      <div className="card p-4 shadow-sm mt-4">
-        <h4 className="mb-3 text-primary">Add New Laboratory</h4>
-        <div className="row g-2">
-          <div className="col-12 col-md-5">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Laboratory Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="col-12 col-md-5">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Laboratory Number"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-            />
-          </div>
-          <div className="col-12 col-md-2">
-            <button
-              className="btn btn-success w-100"
-              onClick={handleAddLaboratory}
-              disabled={isLoading}
-            >
-              {isLoading ? "Adding..." : <>
-                <FaPlus /> Add
-              </>}
-            </button>
+      <div className="row g-2">
+        {/* Left: Add Laboratory Form */}
+        <div className="col-12 col-md-5">
+          <div className="card p-3 shadow-sm">
+            <h6 className="text-primary mb-2">Add New Laboratory</h6>
+            <div className="row g-2">
+              <div className="col-12 col-sm-6">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Laboratory Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className="col-12 col-sm-6">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Laboratory Number"
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
+                />
+              </div>
+              <div className="col-12">
+                <button
+                  className="btn btn-success btn-sm w-100"
+                  onClick={handleAddLaboratory}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    "Adding..."
+                  ) : (
+                    <>
+                      <FaPlus /> Add
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Laboratory List */}
-      <div className="card p-4 shadow-sm mt-4">
-        <h4 className="mb-3 text-primary">
-          <FaList className="me-2" /> List of Laboratories
-        </h4>
+        {/* Right: Laboratory List */}
+        <div className="col-12 col-md-7">
+          <div className="card p-3 shadow-sm">
+            <h6 className="text-primary mb-2">
+              <FaList className="me-2" /> List of Laboratories
+            </h6>
 
-        {isFetching ? (
-          <div className="d-flex justify-content-center">
-            <Loading type="spin" color="#28a745" height={50} width={50} />
+            {isFetching ? (
+              <div className="d-flex justify-content-center">
+                <Loading type="spin" color="#28a745" height={40} width={40} />
+              </div>
+            ) : Array.isArray(laboratories) && laboratories.length === 0 ? (
+              <p className="text-muted text-center small">
+                No laboratories have been added yet.
+              </p>
+            ) : (
+              <ul className="list-group list-group-flush small">
+                {Array.isArray(laboratories) &&
+                  laboratories.map((lab) => (
+                    <li
+                      key={lab.lab_id}
+                      className="list-group-item d-flex justify-content-between align-items-center p-2"
+                    >
+                      <span className="fw-bold text-truncate">
+                        {lab.lab_name}
+                      </span>
+                      <span className="text-muted">#{lab.lab_number}</span>
+                    </li>
+                  ))}
+              </ul>
+            )}
           </div>
-        ) : Array.isArray(laboratories) && laboratories.length === 0 ? (
-          <p className="text-muted text-center">
-            No laboratories have been added yet.
-          </p>
-        ) : (
-          <ul className="list-group">
-            {Array.isArray(laboratories) &&
-              laboratories.map((lab) => (
-                <li
-                  key={lab.lab_id}
-                  className="list-group-item d-flex flex-column flex-md-row justify-content-between text-center text-md-start"
-                >
-                  <strong>{lab.lab_name}</strong> 
-                  <span className="text-muted">#{lab.lab_number}</span>
-                </li>
-              ))}
-          </ul>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -26,6 +26,17 @@ export default function Equipments() {
     images: [],
   });
 
+  const equipmentTypes = [
+    "Computer Accessory",
+    "Printer / Scanner",
+    "Computer Hardware",
+    "Networking Equipment",
+    "Laboratory Equipment",
+    "Office Equipment",
+    "Multimedia Device",
+    "Others",
+  ];
+
   const brands = [
     "Acer",
     "Asus",
@@ -40,6 +51,7 @@ export default function Equipments() {
     "Brother",
     "Canon",
     "Logitech",
+    "Others",
   ];
 
   const statusOptions = [
@@ -71,7 +83,13 @@ export default function Equipments() {
       const response = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/equipments`
       );
-      setEquipments(response.data || []);
+      const uniqueEquipments = response.data.reduce((acc, equipment) => {
+        if (!acc.find((e) => e.equipment_id === equipment.equipment_id)) {
+          acc.push(equipment);
+        }
+        return acc;
+      }, []);
+      setEquipments(uniqueEquipments);
     } catch (err) {
       console.error("❌ Error fetching equipments:", err);
       toast.error("Failed to load equipments.");
@@ -258,12 +276,8 @@ export default function Equipments() {
     setShowImageOptions(true);
   };
 
-  const closeImageOptions = () => {
-    setShowImageOptions(false);
-  };
-
   return (
-    <div className="container mt-4">
+    <div className="container-fluid mt-3 px-2">
       <ToastContainer />
 
       {/* Image Upload Modal */}
@@ -282,47 +296,57 @@ export default function Equipments() {
       )}
 
       {/* Two-column layout */}
-      <div className="row mt-4">
+      <div className="row g-2">
         {/* Left: Add/Edit Form */}
         <div className="col-12 col-md-4">
-          <div className="card p-4 shadow-sm">
-            <h4 className="mb-3 text-primary">
-              {isEditing ? "Edit Equipment" : "Add New Equipment"}
-            </h4>
-            <div className="mb-2">
-              <label className="fw-bold">Name</label>
+          <div className="card p-3 shadow-sm small">
+            <h6 className="text-primary mb-2">
+              {isEditing ? "Edit Equipment" : "Add Equipment"}
+            </h6>
+
+            <div className="mb-1">
+              <label className="fw-bold small">Name</label>
               <input
                 type="text"
-                className="form-control"
+                className="form-control form-control-sm"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
               />
             </div>
-            <div className="mb-2">
-              <label className="fw-bold">Number</label>
+
+            <div className="mb-1">
+              <label className="fw-bold small">Number</label>
               <input
                 type="text"
-                className="form-control"
+                className="form-control form-control-sm"
                 name="number"
                 value={formData.number}
                 onChange={handleChange}
               />
             </div>
-            <div className="mb-2">
-              <label className="fw-bold">Type</label>
-              <input
-                type="text"
-                className="form-control"
+
+            <div className="mb-1">
+              <label className="fw-bold small">Type</label>
+              <select
+                className="form-select form-select-sm"
                 name="type"
                 value={formData.type}
                 onChange={handleChange}
-              />
+              >
+                <option value="">Select Type</option>
+                {equipmentTypes.map((type, index) => (
+                  <option key={index} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="mb-2">
-              <label className="fw-bold">Laboratory</label>
+
+            <div className="mb-1">
+              <label className="fw-bold small">Laboratory</label>
               <select
-                className="form-control"
+                className="form-select form-select-sm"
                 name="laboratory_id"
                 value={formData.laboratory_id}
                 onChange={handleChange}
@@ -335,10 +359,11 @@ export default function Equipments() {
                 ))}
               </select>
             </div>
-            <div className="mb-2">
-              <label className="fw-bold">Brand</label>
+
+            <div className="mb-1">
+              <label className="fw-bold small">Brand</label>
               <select
-                className="form-control"
+                className="form-select form-select-sm"
                 name="brand"
                 value={formData.brand}
                 onChange={handleChange}
@@ -349,17 +374,29 @@ export default function Equipments() {
                     {brand}
                   </option>
                 ))}
+                <option value="Other">Other (Type Below)</option>
               </select>
+              {formData.brand === "Other" && (
+                <input
+                  type="text"
+                  className="form-control form-control-sm mt-1"
+                  name="brand"
+                  value={formData.brand}
+                  onChange={handleChange}
+                  placeholder="Enter brand"
+                />
+              )}
             </div>
 
-            <div className="mb-2">
-              <label className="fw-bold">Status</label>
+            <div className="mb-1">
+              <label className="fw-bold small">Status</label>
               <select
-                className="form-control"
+                className="form-select form-select-sm"
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
               >
+                <option value="">Select Status</option>
                 {statusOptions.map((status, index) => (
                   <option key={index} value={status}>
                     {status}
@@ -368,72 +405,43 @@ export default function Equipments() {
               </select>
             </div>
 
-            <div className="mb-2">
-              <label className="fw-bold">Description</label>
+            <div className="mb-1">
+              <label className="fw-bold small">Description</label>
               <textarea
-                className="form-control"
+                className="form-control form-control-sm"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                rows="3"
+                rows="2"
               ></textarea>
             </div>
 
-            <div className="mb-2">
-              <label className="fw-bold">Images (Max: 3)</label>
-              <div className="d-flex gap-2 mt-2">
+            <div className="mb-1">
+              <label className="fw-bold small">Images (Max: 3)</label>
+              <div className="d-flex flex-wrap gap-1 mt-1">
                 {formData.images.map((img, index) => (
-                  <div
-                    key={index}
-                    style={{ position: "relative", display: "inline-block" }}
-                  >
+                  <div key={index} className="position-relative">
                     <img
                       src={URL.createObjectURL(img)}
                       alt="Equipment"
-                      width="80"
-                      height="80"
+                      width="60"
+                      height="60"
                       className="rounded shadow"
                       style={{ objectFit: "cover" }}
                     />
                     <button
                       type="button"
+                      className="btn-close position-absolute top-0 end-0"
                       onClick={() => handleDeleteImage(index)}
-                      style={{
-                        position: "absolute",
-                        top: "2px",
-                        right: "2px",
-                        background: "red",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "50%",
-                        width: "18px",
-                        height: "18px",
-                        fontSize: "14px",
-                        fontWeight: "bold",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        boxShadow: "0px 2px 5px rgba(0, 0, 0, 0.3)",
-                      }}
-                    >
-                      ✕
-                    </button>
+                    ></button>
                   </div>
                 ))}
                 {formData.images.length < 3 && (
                   <button
                     type="button"
-                    className="btn btn-outline-primary"
+                    className="btn btn-outline-primary btn-sm"
                     onClick={openImageOptions}
-                    style={{
-                      width: "80px",
-                      height: "80px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "1.5rem",
-                    }}
+                    style={{ width: "60px", height: "60px" }}
                   >
                     <FaPlus />
                   </button>
@@ -441,17 +449,19 @@ export default function Equipments() {
               </div>
             </div>
 
-            <div className="d-flex justify-content-end mt-3">
+            <div className="d-flex justify-content-end mt-2">
               {isEditing && (
                 <button
-                  className="btn btn-secondary me-2"
+                  className="btn btn-secondary btn-sm me-1"
                   onClick={handleCancel}
                 >
                   <FaTimes /> Cancel
                 </button>
               )}
               <button
-                className={`btn ${isEditing ? "btn-primary" : "btn-success"}`}
+                className={`btn btn-sm ${
+                  isEditing ? "btn-primary" : "btn-success"
+                }`}
                 onClick={isEditing ? handleUpdateEquipment : handleAddEquipment}
                 disabled={isLoading}
               >
@@ -473,22 +483,22 @@ export default function Equipments() {
 
         {/* Right: Equipment List */}
         <div className="col-12 col-md-8">
-          <div className="card p-4 shadow-sm">
-            <h4 className="mb-3 text-primary">Equipment List</h4>
+          <div className="card p-3 shadow-sm small">
+            <h6 className="text-primary mb-2">Equipment List</h6>
             {isFetching ? (
-              <Loading type="spin" color="#007bff" height={50} width={50} />
+              <Loading type="spin" color="#007bff" height={40} width={40} />
             ) : (
-              <ul className="list-group">
+              <ul className="list-group list-group-flush">
                 {equipments.map((equipment) => (
                   <li
-                    key={equipment.equipment_id}
-                    className="list-group-item d-flex justify-content-between align-items-center"
+                    key={`${equipment.equipment_id}-${equipment.number}`}
+                    className="list-group-item d-flex justify-content-between align-items-center p-2"
                   >
-                    <div>
+                    <span className="text-truncate small">
                       <strong>{equipment.name}</strong> (#{equipment.number}) -{" "}
                       {equipment.type}
-                    </div>
-                    <div className="d-flex gap-2">
+                    </span>
+                    <div className="d-flex gap-1">
                       <button
                         className="btn btn-info btn-sm"
                         onClick={() => handleViewEquipment(equipment)}
@@ -501,7 +511,7 @@ export default function Equipments() {
                           handleRemoveEquipment(equipment.equipment_id)
                         }
                       >
-                        <FaTrash /> Remove
+                        <FaTrash />
                       </button>
                     </div>
                   </li>
@@ -510,15 +520,17 @@ export default function Equipments() {
             )}
           </div>
         </div>
-        <ViewEquipmentModal
-          show={showViewModal}
-          onClose={() => {
-            setShowViewModal(false);
-            fetchEquipments(); 
-          }}
-          equipment={selectedEquipment}
-        />
       </div>
+
+      <ViewEquipmentModal
+        show={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          fetchEquipments();
+        }}
+        equipment={selectedEquipment}
+        onUpdate={fetchEquipments}
+      />
     </div>
   );
 }

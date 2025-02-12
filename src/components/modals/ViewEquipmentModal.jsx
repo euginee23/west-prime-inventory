@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import Loading from "react-loading";
+import axios from "axios";
 import { Modal, Button, Form, Row, Col } from "react-bootstrap";
 import {
   FaTimes,
@@ -13,8 +15,13 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onUpdate }) => {
   if (!equipment) return null;
 
   const [editMode, setEditMode] = useState(false);
-  const [updatedData, setUpdatedData] = useState({ ...equipment });
+  const [updatedData, setUpdatedData] = useState({
+    ...equipment,
+    images: equipment.images || [],
+  });
   const [newImages, setNewImages] = useState([]);
+
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
     setUpdatedData({ ...updatedData, [e.target.name]: e.target.value });
@@ -23,20 +30,18 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onUpdate }) => {
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
     const totalImages =
-      newImages.length +
-      (equipment.existing_images?.length || 0) +
-      files.length;
+      newImages.length + (equipment.images?.length || 0) + files.length;
+
     if (totalImages > 3) {
       alert("⚠️ You can only upload up to 3 images.");
       return;
     }
+
     setNewImages([...newImages, ...files]);
   };
 
   const handleDeleteImage = (index) => {
-    const existingCount = equipment.existing_images
-      ? equipment.existing_images.length
-      : 0;
+    const existingCount = equipment.images ? equipment.images.length : 0;
     if (index >= existingCount) {
       setNewImages(newImages.filter((_, i) => i !== index - existingCount));
     } else {
@@ -44,9 +49,62 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onUpdate }) => {
     }
   };
 
-  const handleSaveChanges = () => {
-    onUpdate(updatedData, newImages);
-    setEditMode(false);
+  const handleSaveChanges = async () => {
+    if (
+      !updatedData.name ||
+      !updatedData.number ||
+      !updatedData.type ||
+      !updatedData.brand ||
+      !updatedData.status ||
+      !updatedData.description
+    ) {
+      alert("⚠️ Please fill in all required fields.");
+      return;
+    }
+
+    const formDataToSend = new FormData();
+    Object.entries(updatedData).forEach(([key, value]) => {
+      formDataToSend.append(key, value);
+    });
+
+    formDataToSend.append(
+      "remove_old_images",
+      newImages.length > 0 ? "true" : "false"
+    );
+
+    newImages.forEach((file) => {
+      formDataToSend.append("images", file);
+    });
+
+    setIsLoading(true);
+    try {
+      await axios.put(
+        `${import.meta.env.VITE_API_BASE_URL}/equipments/${
+          equipment.equipment_id
+        }`,
+        formDataToSend,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+
+      alert("✅ Equipment updated successfully!");
+      onUpdate();
+      setEditMode(false);
+      setNewImages([]);
+    } catch (err) {
+      console.error(
+        "❌ Error updating equipment:",
+        err.response?.data || err.message
+      );
+      alert(
+        `❌ Failed to update equipment: ${
+          err.response?.data?.message || "Internal server error"
+        }`
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -94,7 +152,7 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onUpdate }) => {
             <h5 className="fw-bold">Images</h5>
             <div className="container">
               <Row className="gx-2 gy-2 justify-content-center">
-                {(equipment.existing_images || [])
+                {(equipment.images || [])
                   .concat(newImages)
                   .map((img, index) => (
                     <Col
@@ -207,13 +265,17 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onUpdate }) => {
               variant="success"
               onClick={handleSaveChanges}
               className="me-2"
+              disabled={isLoading}
             >
-              <FaSave className="me-1" /> Save Changes
+              {isLoading ? (
+                <Loading type="spin" color="#fff" height={20} width={20} />
+              ) : (
+                <>
+                  <FaSave className="me-1" /> Save Changes
+                </>
+              )}
             </Button>
-            <Button
-              variant="secondary"
-              onClick={handleCancel} 
-            >
+            <Button variant="secondary" onClick={handleCancel}>
               <FaTimes className="me-1" /> Cancel
             </Button>
           </>

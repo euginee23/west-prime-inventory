@@ -161,7 +161,7 @@ export default function Personnels() {
   };
 
   return (
-    <div className="container mt-4">
+    <div className="container-fluid mt-3 px-2">
       <ToastContainer />
 
       {/* Delete Confirmation Modal */}
@@ -174,9 +174,9 @@ export default function Personnels() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title fw-bold text-danger">
+                <h6 className="modal-title fw-bold text-danger">
                   Confirm Personnel Removal
-                </h5>
+                </h6>
                 <button
                   type="button"
                   className="btn-close"
@@ -184,17 +184,16 @@ export default function Personnels() {
                 ></button>
               </div>
               <div className="modal-body">
-                <p className="text-muted">
+                <p className="text-muted small">
                   Are you sure you want to remove this personnel? This action
-                  cannot be undone.
-                  <br />
+                  cannot be undone. <br />
                   <strong>
                     Type: <code>confirm-remove</code> to proceed.
                   </strong>
                 </p>
                 <input
                   type="text"
-                  className="form-control"
+                  className="form-control form-control-sm"
                   placeholder="Type: confirm-remove"
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
@@ -202,17 +201,17 @@ export default function Personnels() {
               </div>
               <div className="modal-footer">
                 <button
-                  className="btn btn-secondary"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => setDeleteId(null)}
                 >
                   Cancel
                 </button>
                 <button
-                  className="btn btn-danger"
+                  className="btn btn-danger btn-sm"
                   onClick={handleConfirmRemove}
                   disabled={confirmText !== "confirm-remove"}
                 >
-                  <FaTrash /> Remove Personnel
+                  <FaTrash /> Remove
                 </button>
               </div>
             </div>
@@ -220,152 +219,163 @@ export default function Personnels() {
         </div>
       )}
 
-      {/* Add/Edit Personnel Form */}
-      <div className="card p-4 shadow-sm mt-4">
-        <h4 className="mb-3 text-primary">
-          {isEditing ? "Edit Personnel" : "Add New Personnel"}
-        </h4>
-        <div className="row">
-          {["first_name", "middle_name", "last_name", "phone", "email"].map(
-            (field, index) => (
-              <div key={index} className="col-12 col-md-4">
+      <div className="row g-2">
+        {/* Left: Add/Edit Personnel Form */}
+        <div className="col-12 col-md-5">
+          <div className="card p-3 shadow-sm">
+            <h6 className="text-primary mb-2">
+              {isEditing ? "Edit Personnel" : "Add Personnel"}
+            </h6>
+            <div className="row g-2">
+              {["first_name", "middle_name", "last_name", "phone", "email"].map(
+                (field, index) => (
+                  <div key={index} className="col-12 col-sm-6">
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder={field
+                        .replace("_", " ")
+                        .replace(/\b\w/g, (char) => char.toUpperCase())}
+                      name={field}
+                      value={formData[field]}
+                      onChange={handleChange}
+                    />
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Separation Line */}
+            <hr />
+
+            {/* Username & Password Fields */}
+            <div className="row g-2">
+              <div className="col-12">
                 <input
                   type="text"
-                  className="form-control mb-2"
-                  placeholder={field
-                    .replace("_", " ")
-                    .replace(/\b\w/g, (char) => char.toUpperCase())}
-                  name={field}
-                  value={formData[field]}
+                  className="form-control form-control-sm"
+                  placeholder="Username"
+                  name="username"
+                  value={formData.username}
                   onChange={handleChange}
                 />
               </div>
-            )
-          )}
-        </div>
-
-        {/* Separation Line */}
-        <hr />
-
-        {/* Username & Password Fields */}
-        <div className="row">
-          <div className="col-12 col-md-6">
-            <input
-              type="text"
-              className="form-control mb-2"
-              placeholder="Username"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-            />
-          </div>
-          {!isEditing && (
-            <div className="col-12 col-md-6">
-              <div className="input-group">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  className="form-control"
-                  placeholder="Password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                />
-                <button
-                  className="btn btn-outline-secondary"
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </button>
-                <button
-                  className="btn btn-warning"
-                  type="button"
-                  onClick={generatePassword}
-                >
-                  <FaKey />
-                </button>
-              </div>
+              {!isEditing && (
+                <div className="col-12">
+                  <div className="input-group input-group-sm">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      className="form-control"
+                      placeholder="Password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                    />
+                    <button
+                      className="btn btn-outline-secondary"
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    </button>
+                    <button
+                      className="btn btn-warning"
+                      type="button"
+                      onClick={generatePassword}
+                    >
+                      <FaKey />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <div className="d-flex justify-content-end mt-3">
-          {isEditing && (
-            <button className="btn btn-secondary me-2" onClick={handleCancel}>
-              <FaTimes /> Cancel
-            </button>
-          )}
-          <button
-            className={`btn ${isEditing ? "btn-primary" : "btn-success"}`}
-            onClick={isEditing ? handleUpdatePersonnel : handleAddPersonnel}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              "Saving..."
-            ) : isEditing ? (
-              <>
-                <FaSave /> Update
-              </>
-            ) : (
-              <>
-                <FaUserPlus /> Add
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Personnel List */}
-      <div className="card p-4 shadow-sm mt-4">
-        <h4 className="mb-3 text-primary">
-          <FaUsers className="me-2" /> List of Personnel
-        </h4>
-        {isFetching ? (
-          <div
-            className="d-flex justify-content-center align-items-center"
-            style={{ height: "200px" }}
-          >
-            <Loading type="spin" color="#007bff" height={50} width={50} />
-          </div>
-        ) : personnels.length === 0 ? (
-          <p className="text-muted text-center">
-            No personnel have been added yet.
-          </p>
-        ) : (
-          <ul className="list-group">
-            {personnels.map((person) => (
-              <li
-                key={person.user_id}
-                className="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center"
+            <div className="d-flex justify-content-end mt-2">
+              {isEditing && (
+                <button
+                  className="btn btn-secondary btn-sm me-2"
+                  onClick={handleCancel}
+                >
+                  <FaTimes /> Cancel
+                </button>
+              )}
+              <button
+                className={`btn btn-sm ${
+                  isEditing ? "btn-primary" : "btn-success"
+                }`}
+                onClick={isEditing ? handleUpdatePersonnel : handleAddPersonnel}
+                disabled={isLoading}
               >
-                <div className="text-center text-md-start">
-                  <strong>
-                    {person.first_name}{" "}
-                    {person.middle_name ? person.middle_name + " " : ""}
-                    {person.last_name}
-                  </strong>
-                  <p className="mb-0 small text-muted">
-                    {person.email} | {person.phone}
-                  </p>
-                </div>
-                <div className="d-flex gap-2 mt-2 mt-md-0">
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => handleEditPersonnel(person)}
+                {isLoading ? (
+                  "Saving..."
+                ) : isEditing ? (
+                  <>
+                    <FaSave /> Update
+                  </>
+                ) : (
+                  <>
+                    <FaUserPlus /> Add
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Personnel List */}
+        <div className="col-12 col-md-7">
+          <div className="card p-3 shadow-sm">
+            <h6 className="text-primary mb-2">
+              <FaUsers className="me-2" /> Personnel List
+            </h6>
+            {isFetching ? (
+              <div
+                className="d-flex justify-content-center align-items-center"
+                style={{ height: "200px" }}
+              >
+                <Loading type="spin" color="#007bff" height={40} width={40} />
+              </div>
+            ) : personnels.length === 0 ? (
+              <p className="text-muted text-center small">
+                No personnel have been added yet.
+              </p>
+            ) : (
+              <ul className="list-group list-group-flush small">
+                {personnels.map((person) => (
+                  <li
+                    key={person.user_id}
+                    className="list-group-item d-flex justify-content-between align-items-center p-2"
                   >
-                    <FaEdit /> Edit
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleRemovePersonnel(person.user_id)}
-                  >
-                    <FaTrash /> Remove
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                    <div className="text-truncate">
+                      <strong>
+                        {person.first_name}{" "}
+                        {person.middle_name ? person.middle_name + " " : ""}
+                        {person.last_name}
+                      </strong>
+                      <p className="mb-0 small text-muted">
+                        {person.email} | {person.phone}
+                      </p>
+                    </div>
+                    <div className="d-flex gap-1">
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => handleEditPersonnel(person)}
+                      >
+                        <FaEdit /> Edit
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleRemovePersonnel(person.user_id)}
+                      >
+                        <FaTrash /> Remove
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

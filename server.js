@@ -12,8 +12,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fieldSize: 10 * 1024 * 1024, 
+    fileSize: 10 * 1024 * 1024, 
+    files: 3,
+  },
+});
 
 // JWT_SECRET DEFINITION
 if (!JWT_SECRET) {
@@ -391,24 +397,99 @@ app.get("/equipments", async (req, res) => {
     const [results] = await db.execute(`
       SELECT 
         e.*, 
-        ei.image AS equipment_image 
+        ei.img_id, 
+        ei.image 
       FROM equipments e
       LEFT JOIN equipment_images ei ON e.equipment_id = ei.equipment_id
     `);
 
-    const equipments = results.map((equipment) => ({
-      ...equipment,
-      qr_img: equipment.qr_img
-        ? `data:image/jpeg;base64,${equipment.qr_img.toString("base64")}`
-        : null,
-      equipment_image: equipment.equipment_image
-        ? `data:image/jpeg;base64,${equipment.equipment_image.toString("base64")}`
-        : null,
-    }));
+    const equipmentMap = new Map();
+
+    results.forEach((row) => {
+      if (!equipmentMap.has(row.equipment_id)) {
+        equipmentMap.set(row.equipment_id, {
+          equipment_id: row.equipment_id,
+          name: row.name,
+          number: row.number,
+          type: row.type,
+          brand: row.brand,
+          status: row.status,
+          description: row.description,
+          user_id: row.user_id,
+          laboratory_id: row.laboratory_id,
+          qr_img: row.qr_img
+            ? `data:image/jpeg;base64,${row.qr_img.toString("base64")}`
+            : null,
+          images: [], 
+        });
+      }
+
+      if (row.image) {
+        equipmentMap.get(row.equipment_id).images.push(
+          `data:image/jpeg;base64,${row.image.toString("base64")}`
+        );
+      }
+    });
+
+    const equipments = Array.from(equipmentMap.values());
 
     res.status(200).json(equipments);
   } catch (err) {
     console.error("❌ Error fetching equipments:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// UPDATE EQUIPMENTS
+app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
+  const { id } = req.params;
+  const { name, number, type, brand, status, description, user_id, laboratory_id, remove_images } = req.body;
+  const newImages = req.files;
+
+  if (!name || !number || !type || !brand || !status || !description || !user_id || !laboratory_id) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
+  try {
+    const [existingEquipment] = await db.execute("SELECT * FROM equipments WHERE equipment_id = ?", [id]);
+    if (existingEquipment.length === 0) {
+      return res.status(404).json({ message: "Equipment not found." });
+    }
+
+    if (remove_images) {
+      const imagesToRemove = JSON.parse(remove_images); 
+      for (const imageId of imagesToRemove) {
+        await db.execute("DELETE FROM equipment_images WHERE img_id = ? AND equipment_id = ?", [imageId, id]);
+      }
+    }
+
+    const [existingImages] = await db.execute(
+      "SELECT COUNT(*) AS imageCount FROM equipment_images WHERE equipment_id = ?",
+      [id]
+    );
+    const currentImageCount = existingImages[0].imageCount;
+
+    if (currentImageCount + newImages.length > 3) {
+      return res.status(400).json({ message: `You can only have up to 3 images. Current: ${currentImageCount}, New: ${newImages.length}` });
+    }
+
+    await db.execute(
+      `UPDATE equipments 
+       SET name = ?, number = ?, type = ?, brand = ?, status = ?, description = ?, user_id = ?, laboratory_id = ? 
+       WHERE equipment_id = ?`,
+      [name, number, type, brand, status, description, user_id, laboratory_id, id]
+    );
+
+    for (const image of newImages) {
+      await db.execute(
+        `INSERT INTO equipment_images (equipment_id, image) VALUES (?, ?)`,
+        [id, image.buffer]
+      );
+    }
+
+    res.status(200).json({ message: "Equipment updated successfully." });
+  } catch (err) {
+    console.error("❌ Error updating equipment:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });
