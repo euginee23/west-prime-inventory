@@ -49,8 +49,8 @@ export default function Login({ onLogin }) {
               animationDuration: "1s",
             }}
           />
-          <h1 className="fw-bold mb-3 text-shadow">West Prime Inventory Management System</h1>
-          <p className="text-shadow lead">ICT Equipment Monitoring and Tracking System</p>
+          <h1 className="fw-bold mb-3 text-shadow">West Prime ICT Equipment Monitoring and Tracking System</h1>
+          <p className="text-shadow lead">Equipment Monitoring and Tracking System</p>
         </div>
 
         <div className="col-12 col-md-6">

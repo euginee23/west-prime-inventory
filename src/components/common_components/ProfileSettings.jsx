@@ -209,7 +209,7 @@ export default function ProfileSettings() {
   }
 
   return (
-    <div className="container mt-4">
+    <div className="container-fluid mt-3 px-2">
       <ToastContainer />
 
       {userData && (
@@ -300,209 +300,196 @@ export default function ProfileSettings() {
             </div>
           )}
 
-          <div className="card shadow-sm p-4 mt-4">
-            <h4 className="mb-3 text-primary">Personal Information</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <p>
-                  <FaUser className="me-2 text-success" />
-                  <strong>First Name:</strong>
-                </p>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  disabled={!isEditingPersonal}
-                />
-
-                <p className="mt-3">
-                  <FaUser className="me-2 text-success" />
-                  <strong>Middle Name:</strong>
-                </p>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="middle_name"
-                  value={formData.middle_name || ""}
-                  onChange={handleChange}
-                  disabled={!isEditingPersonal}
-                />
-
-                <p className="mt-3">
-                  <FaUser className="me-2 text-success" />
-                  <strong>Last Name:</strong>
-                </p>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  disabled={!isEditingPersonal}
-                />
-              </div>
-
-              <div className="col-md-6">
-                <p>
-                  <FaEnvelope className="me-2 text-warning" />
-                  <strong>Email:</strong>
-                </p>
-                <input
-                  type="email"
-                  className="form-control"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  disabled={!isEditingPersonal}
-                />
-
-                <p className="mt-3">
-                  <FaPhone className="me-2 text-info" />
-                  <strong>Phone:</strong>
-                </p>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  disabled={!isEditingPersonal}
-                />
-              </div>
-            </div>
-
-            <div className="d-flex justify-content-end mt-3">
-              {isEditingPersonal ? (
-                <>
-                  <button
-                    className="btn btn-success me-2"
-                    onClick={handleSavePersonal}
-                    disabled={isSavingPersonal}
-                  >
-                    {isSavingPersonal ? (
-                      "Saving..."
-                    ) : (
-                      <>
-                        <FaSave className="me-1" /> Save
-                      </>
-                    )}
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setIsEditingPersonal(false)}
-                  >
-                    <FaTimes className="me-1" /> Cancel
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setIsEditingPersonal(true)}
-                >
-                  <FaEdit className="me-1" /> Edit
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="card shadow-sm p-4 mt-4">
-            <h4 className="mb-3 text-primary">Login Credentials</h4>
-            <div className="row">
-              <div className="col-md-6">
-                <p>
-                  <FaUser className="me-2 text-success" />
-                  <strong>Username:</strong>
-                </p>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  disabled={!isEditingCredentials}
-                />
-              </div>
-
-              <div className="col-md-6">
-                <p>
-                  <FaLock className="me-2 text-danger" />
-                  <strong>New Password:</strong>
-                </p>
-                <div className="input-group">
-                  <input
-                    type={showNewPassword ? "text" : "password"}
-                    className="form-control"
-                    name="newPassword"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    disabled={!isEditingCredentials}
-                  />
-                  <button
-                    className="btn btn-outline-secondary"
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                  >
-                    {showNewPassword ? <FaEyeSlash /> : <FaEye />}
-                  </button>
+          <div className="d-flex flex-column align-items-center justify-content-center py-5">
+            <div
+              className="col-12 col-md-8 col-lg-5 mx-auto mt-4"
+              style={{ maxWidth: "600px" }}
+            >
+              <div className="card shadow-sm p-3 h-100">
+                <h6 className="mb-2 text-primary">Personal Information</h6>
+                <div className="row g-2 small">
+                  {[
+                    {
+                      name: "first_name",
+                      icon: <FaUser className="me-1 text-success" />,
+                      label: "First Name",
+                    },
+                    {
+                      name: "middle_name",
+                      icon: <FaUser className="me-1 text-success" />,
+                      label: "Middle Name",
+                    },
+                    {
+                      name: "last_name",
+                      icon: <FaUser className="me-1 text-success" />,
+                      label: "Last Name",
+                    },
+                    {
+                      name: "email",
+                      icon: <FaEnvelope className="me-1 text-warning" />,
+                      label: "Email",
+                    },
+                    {
+                      name: "phone",
+                      icon: <FaPhone className="me-1 text-info" />,
+                      label: "Phone",
+                    },
+                  ].map((field, index) => (
+                    <div key={index} className="col-12 col-sm-6">
+                      <label className="small text-muted">
+                        {field.icon} {field.label}
+                      </label>
+                      <input
+                        type={field.name === "email" ? "email" : "text"}
+                        className="form-control form-control-sm"
+                        name={field.name}
+                        value={formData[field.name] || ""}
+                        onChange={handleChange}
+                        disabled={!isEditingPersonal}
+                      />
+                    </div>
+                  ))}
                 </div>
 
-                <p className="mt-3">
-                  <FaLock className="me-2 text-danger" />
-                  <strong>Confirm New Password:</strong>
-                </p>
-                <div className="input-group">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    className="form-control"
-                    name="confirmNewPassword"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    disabled={!isEditingCredentials}
-                  />
-                  <button
-                    className="btn btn-outline-secondary"
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                  </button>
+                <div className="d-flex justify-content-end mt-2">
+                  {isEditingPersonal ? (
+                    <>
+                      <button
+                        className="btn btn-success btn-sm me-2"
+                        onClick={handleSavePersonal}
+                        disabled={isSavingPersonal}
+                      >
+                        {isSavingPersonal ? (
+                          "Saving..."
+                        ) : (
+                          <>
+                            <FaSave className="me-1" /> Save
+                          </>
+                        )}
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setIsEditingPersonal(false)}
+                      >
+                        <FaTimes className="me-1" /> Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setIsEditingPersonal(true)}
+                    >
+                      <FaEdit className="me-1" /> Edit
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="d-flex justify-content-end mt-3">
-              {isEditingCredentials ? (
-                <>
-                  <button
-                    className="btn btn-success me-2"
-                    onClick={handleShowConfirmModal}
-                    disabled={isSavingCredentials}
-                  >
-                    {isSavingCredentials ? (
-                      "Saving..."
-                    ) : (
-                      <>
-                        <FaSave className="me-1" /> Save
-                      </>
-                    )}
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setIsEditingCredentials(false)}
-                  >
-                    <FaTimes className="me-1" /> Cancel
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setIsEditingCredentials(true)}
-                >
-                  <FaEdit className="me-1" /> Edit
-                </button>
-              )}
+            <div
+              className="col-12 col-md-8 col-lg-5 mx-auto mt-4"
+              style={{ maxWidth: "600px" }}
+            >
+              <div className="card shadow-sm p-3">
+                <h6 className="mb-2 text-primary">Login Credentials</h6>
+                <div className="row g-2 small">
+                  <div className="col-12 col-sm-6">
+                    <label className="small text-muted">
+                      <FaUser className="me-1 text-success" /> Username
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      disabled={!isEditingCredentials}
+                    />
+                  </div>
+
+                  <div className="col-12 col-sm-6">
+                    <label className="small text-muted">
+                      <FaLock className="me-1 text-danger" /> New Password
+                    </label>
+                    <div className="input-group input-group-sm">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        className="form-control"
+                        name="newPassword"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        disabled={!isEditingCredentials}
+                      />
+                      <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-sm-6">
+                    <label className="small text-muted">
+                      <FaLock className="me-1 text-danger" /> Confirm New
+                      Password
+                    </label>
+                    <div className="input-group input-group-sm">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        className="form-control"
+                        name="confirmNewPassword"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        disabled={!isEditingCredentials}
+                      />
+                      <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                      >
+                        {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="d-flex justify-content-end mt-2">
+                  {isEditingCredentials ? (
+                    <>
+                      <button
+                        className="btn btn-success btn-sm me-2"
+                        onClick={handleShowConfirmModal}
+                        disabled={isSavingCredentials}
+                      >
+                        {isSavingCredentials ? (
+                          "Saving..."
+                        ) : (
+                          <>
+                            <FaSave className="me-1" /> Save
+                          </>
+                        )}
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setIsEditingCredentials(false)}
+                      >
+                        <FaTimes className="me-1" /> Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setIsEditingCredentials(true)}
+                    >
+                      <FaEdit className="me-1" /> Edit
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </>

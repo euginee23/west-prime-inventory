@@ -365,22 +365,31 @@ app.post("/equipments", upload.array("images", 3), async (req, res) => {
   }
 
   try {
-    const qrData = `Equipment: ${name}, Number: ${number}`;
+    // 🔹 First, insert equipment without the QR image
+    const [equipmentResult] = await db.execute(
+      `INSERT INTO equipments (name, number, type, brand, status, description, user_id, laboratory_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, number, type, brand, status, description, user_id, laboratory_id]
+    );
+
+    const equipmentId = equipmentResult.insertId; // ✅ Get inserted ID
+
+    // 🔹 Now generate QR Code using the `equipmentId`
+    const qrData = `${equipmentId}`; // Store only the ID
     const qrCodeImage = await QRCode.toDataURL(qrData);
     const qrBuffer = Buffer.from(qrCodeImage.split(",")[1], "base64");
 
-    const [equipmentResult] = await db.execute(
-      `INSERT INTO equipments (name, number, type, brand, status, description, user_id, laboratory_id, qr_img) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, number, type, brand, status, description, user_id, laboratory_id, qrBuffer]
+    // 🔹 Update the equipment record with the QR code
+    await db.execute(
+      "UPDATE equipments SET qr_img = ? WHERE equipment_id = ?",
+      [qrBuffer, equipmentId]
     );
 
-    const equipmentId = equipmentResult.insertId; 
-
+    // 🔹 Store images in `equipment_images` table
     for (const image of images) {
       await db.execute(
         `INSERT INTO equipment_images (equipment_id, image) VALUES (?, ?)`,
-        [equipmentId, image.buffer] 
+        [equipmentId, image.buffer]
       );
     }
 
@@ -437,6 +446,22 @@ app.get("/equipments", async (req, res) => {
   } catch (err) {
     console.error("❌ Error fetching equipments:", err);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// GET EQUIPMENT BY ID
+app.get("/equipments/:equipment_id", async (req, res) => {
+  try {
+    const { equipment_id } = req.params;
+    const [rows] = await db.query("SELECT * FROM equipments WHERE equipment_id = ?", [equipment_id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Equipment not found" });
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
   }
 });
 

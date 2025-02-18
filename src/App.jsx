@@ -10,7 +10,6 @@ function App() {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
-  // Check for a saved token in localStorage on app load
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     const savedRole = localStorage.getItem("role");

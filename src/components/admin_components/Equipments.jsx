@@ -51,7 +51,6 @@ export default function Equipments() {
     "Brother",
     "Canon",
     "Logitech",
-    "Others",
   ];
 
   const statusOptions = [
@@ -362,30 +361,31 @@ export default function Equipments() {
 
             <div className="mb-1">
               <label className="fw-bold small">Brand</label>
-              <select
-                className="form-select form-select-sm"
-                name="brand"
-                value={formData.brand}
-                onChange={handleChange}
-              >
-                <option value="">Select Brand</option>
-                {brands.map((brand, index) => (
-                  <option key={index} value={brand}>
-                    {brand}
-                  </option>
-                ))}
-                <option value="Other">Other (Type Below)</option>
-              </select>
-              {formData.brand === "Other" && (
+              <div className="input-group input-group-sm">
+                <select
+                  className="form-select"
+                  name="brand"
+                  value={
+                    brands.includes(formData.brand) ? formData.brand : "Other"
+                  }
+                  onChange={handleChange}
+                >
+                  <option value="">Select Brand</option>
+                  {brands.map((brand, index) => (
+                    <option key={index} value={brand}>
+                      {brand}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="text"
-                  className="form-control form-control-sm mt-1"
+                  className="form-control"
                   name="brand"
                   value={formData.brand}
                   onChange={handleChange}
-                  placeholder="Enter brand"
+                  placeholder="Other"
                 />
-              )}
+              </div>
             </div>
 
             <div className="mb-1">

@@ -7,6 +7,7 @@ import ProfileSettings from "./common_components/ProfileSettings";
 import Laboratories from "./admin_components/Laboratories";
 import Personnels from "./admin_components/Personnels";
 import Equipments from "./admin_components/Equipments";
+import ScanEquipment from "./admin_components/ScanEquipment";
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -111,7 +112,7 @@ export default function AdminPage() {
           {activeSection === "equipments" && <Equipments />}
           {activeSection === "laboratories" && <Laboratories />}
           {activeSection === "personnels" && <Personnels />}
-          {activeSection === "scan" && <div>Scan QR Codes</div>}
+          {activeSection === "scan" && <ScanEquipment/>}
           {activeSection === "track" && <div>Track Equipments</div>}
           {activeSection === "reports" && <div>Reports Section</div>}
           {activeSection === "profile-settings" && <ProfileSettings />}
