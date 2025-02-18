@@ -8,6 +8,7 @@ import Laboratories from "./admin_components/Laboratories";
 import Personnels from "./admin_components/Personnels";
 import Equipments from "./admin_components/Equipments";
 import ScanEquipment from "./admin_components/ScanEquipment";
+import Dashboard from "./admin_components/Dashboard";
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -108,7 +109,7 @@ export default function AdminPage() {
         }}
       >
         <div className="row gx-3 gy-4">
-          {activeSection === "dashboard" && <div>Dashboard Content</div>}
+          {activeSection === "dashboard" && <Dashboard />}
           {activeSection === "equipments" && <Equipments />}
           {activeSection === "laboratories" && <Laboratories />}
           {activeSection === "personnels" && <Personnels />}

@@ -10,7 +10,6 @@ export default function PersonnelPage() {
   const user = getLoggedInUser();
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard" },
     { id: "scan", label: "Scan" },
     { id: "track", label: "Track" },
     { id: "equipments", label: "Equipments" },

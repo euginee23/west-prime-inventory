@@ -42,9 +42,6 @@ const ScanEquipment = () => {
       );
       setEquipment(response.data);
       setError("");
-
-      const audio = new Audio(beepSound);
-      audio.play().catch(() => {}); 
     } catch (err) {
       setError("Equipment not found or invalid QR code.");
       setEquipment(null);
@@ -57,9 +54,12 @@ const ScanEquipment = () => {
 
   const handleScan = (data) => {
     if (data && isScanning) {
-      const scannedData = data.text.trim(); 
+      const scannedData = data.text.trim();
       setScanResult(scannedData);
-      setIsScanning(false); 
+      setIsScanning(false);
+      const audio = new Audio(beepSound);
+      audio.play().catch(() => {});
+
       fetchEquipmentDetails(scannedData);
     }
   };
