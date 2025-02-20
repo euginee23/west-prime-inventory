@@ -16,6 +16,7 @@ import {
 } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ReLoginModal from "../modals/ReloginModal";
 
 export default function ProfileSettings() {
   const [userData, setUserData] = useState(null);
@@ -24,6 +25,7 @@ export default function ProfileSettings() {
 
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isEditingCredentials, setIsEditingCredentials] = useState(false);
+  const [showReloginModal, setShowReloginModal] = useState(false);
 
   const [formData, setFormData] = useState({});
   const [newPassword, setNewPassword] = useState("");
@@ -55,6 +57,7 @@ export default function ProfileSettings() {
       } catch (err) {
         console.error("❌ Error fetching profile data:", err);
         setError("Failed to load profile data.");
+        setShowReloginModal(true);
       } finally {
         setIsLoading(false);
       }
@@ -70,7 +73,6 @@ export default function ProfileSettings() {
   const handleSavePersonal = async () => {
     setIsSavingPersonal(true);
 
-    // Validate required fields
     if (
       !formData.first_name ||
       !formData.last_name ||
@@ -82,7 +84,6 @@ export default function ProfileSettings() {
       return;
     }
 
-    // Check if changes were actually made
     const hasChanges =
       formData.first_name !== userData.first_name ||
       formData.middle_name !== userData.middle_name ||
@@ -143,6 +144,11 @@ export default function ProfileSettings() {
     }
 
     setShowConfirmModal(true);
+  };
+
+  const handleReLogin = () => {
+    localStorage.clear();
+    window.location.href = "/login";
   };
 
   const handleSaveCredentials = async () => {
@@ -210,7 +216,9 @@ export default function ProfileSettings() {
 
   return (
     <div className="container-fluid mt-3 px-2">
+      
       <ToastContainer />
+      <ReLoginModal show={showReloginModal} onReLogin={handleReLogin} />
 
       {userData && (
         <>

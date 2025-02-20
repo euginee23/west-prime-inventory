@@ -26,6 +26,8 @@ const ScanEquipment = () => {
     updateScannerSize();
     window.addEventListener("resize", updateScannerSize);
     return () => window.removeEventListener("resize", updateScannerSize);
+
+
   }, []);
 
   const fetchEquipmentDetails = async (qrData) => {
@@ -57,12 +59,14 @@ const ScanEquipment = () => {
       const scannedData = data.text.trim();
       setScanResult(scannedData);
       setIsScanning(false);
-      const audio = new Audio(beepSound);
-      audio.play().catch(() => {});
 
+      const audio = new Audio(beepSound);
+      audio.play().catch((err) => console.log("Playback failed:", err));
+  
       fetchEquipmentDetails(scannedData);
     }
   };
+  
 
   const handleError = (err) => {
     console.error(err);
