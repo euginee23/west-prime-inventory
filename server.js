@@ -370,54 +370,6 @@ app.delete("/personnels/:id", async (req, res) => {
   }
 });
 
-// ADD EQUIPMENT WITH IMAGES
-app.post("/equipments", upload.array("images", 3), async (req, res) => {
-  const { name, number, type, brand, status, description, user_id, laboratory_id } = req.body;
-  const images = req.files;
-
-  if (!name || !number || !type || !brand || !status || !description || !user_id || !laboratory_id) {
-    return res.status(400).json({ message: "All fields are required." });
-  }
-  if (!images || images.length < 1) {
-    return res.status(400).json({ message: "At least one image is required." });
-  }
-
-  try {
-    // 🔹 First, insert equipment without the QR image
-    const [equipmentResult] = await db.execute(
-      `INSERT INTO equipments (name, number, type, brand, status, description, user_id, laboratory_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, number, type, brand, status, description, user_id, laboratory_id]
-    );
-
-    const equipmentId = equipmentResult.insertId; // ✅ Get inserted ID
-
-    // 🔹 Now generate QR Code using the `equipmentId`
-    const qrData = `${equipmentId}`; // Store only the ID
-    const qrCodeImage = await QRCode.toDataURL(qrData);
-    const qrBuffer = Buffer.from(qrCodeImage.split(",")[1], "base64");
-
-    // 🔹 Update the equipment record with the QR code
-    await db.execute(
-      "UPDATE equipments SET qr_img = ? WHERE equipment_id = ?",
-      [qrBuffer, equipmentId]
-    );
-
-    // 🔹 Store images in `equipment_images` table
-    for (const image of images) {
-      await db.execute(
-        `INSERT INTO equipment_images (equipment_id, image) VALUES (?, ?)`,
-        [equipmentId, image.buffer]
-      );
-    }
-
-    res.status(201).json({ message: "Equipment added successfully." });
-  } catch (err) {
-    console.error("❌ Error adding equipment:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
 // GET EQUIPMENTS
 app.get("/equipments", async (req, res) => {
   try {
@@ -425,9 +377,16 @@ app.get("/equipments", async (req, res) => {
       SELECT 
         e.*, 
         ei.img_id, 
-        ei.image 
+        ei.image, 
+        u.first_name, 
+        u.last_name, 
+        u.user_type, 
+        l.lab_name, 
+        l.lab_number
       FROM equipments e
       LEFT JOIN equipment_images ei ON e.equipment_id = ei.equipment_id
+      LEFT JOIN users u ON e.user_id = u.user_id
+      LEFT JOIN laboratories l ON e.laboratory_id = l.lab_id
     `);
 
     const equipmentMap = new Map();
@@ -440,14 +399,29 @@ app.get("/equipments", async (req, res) => {
           number: row.number,
           type: row.type,
           brand: row.brand,
-          status: row.status,
           description: row.description,
-          user_id: row.user_id,
-          laboratory_id: row.laboratory_id,
+          availability_status: row.availability_status,
+          operational_status: row.operational_status,
+          created_at: row.created_at,
           qr_img: row.qr_img
             ? `data:image/jpeg;base64,${row.qr_img.toString("base64")}`
             : null,
-          images: [], 
+          images: [],
+          
+          user: row.first_name
+            ? {
+                first_name: row.first_name,
+                last_name: row.last_name,
+                user_type: row.user_type,
+              }
+            : null,
+
+          laboratory: row.lab_name
+            ? {
+                lab_name: row.lab_name,
+                lab_number: row.lab_number,
+              }
+            : null,
         });
       }
 
@@ -483,26 +457,121 @@ app.get("/equipments/:equipment_id", async (req, res) => {
   }
 });
 
+// ADD EQUIPMENT
+app.post("/equipments", upload.array("images", 3), async (req, res) => {
+
+  const { 
+    name, 
+    number, 
+    type, 
+    brand,  
+    availability_status = "Available",
+    description, 
+    user_id, 
+    laboratory_id 
+  } = req.body;
+  const images = req.files;
+
+  if (!name || !number || !type || !brand || !availability_status || !description || !user_id || !laboratory_id) {
+    console.error("🚨 Missing required fields:", { name, number, type, brand, availability_status, description, user_id, laboratory_id });
+    return res.status(400).json({ message: "All fields are required." });
+  }
+  
+  if (!images || images.length < 1) {
+    console.error("🚨 No images uploaded.");
+    return res.status(400).json({ message: "At least one image is required." });
+  }
+
+  try {
+
+    const parsedUserId = parseInt(user_id, 10);
+    const parsedLabId = parseInt(laboratory_id, 10);
+
+    const [equipmentResult] = await db.execute(
+      `INSERT INTO equipments 
+       (name, number, type, brand, availability_status, description, user_id, laboratory_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, number, type, brand, availability_status, description, parsedUserId, parsedLabId]
+    );
+
+    const equipmentId = equipmentResult.insertId; 
+
+    const qrData = `${equipmentId}`;
+    const qrCodeImage = await QRCode.toDataURL(qrData);
+    const qrBuffer = Buffer.from(qrCodeImage.split(",")[1], "base64");
+
+    await db.execute(
+      "UPDATE equipments SET qr_img = ? WHERE equipment_id = ?",
+      [qrBuffer, equipmentId]
+    );
+
+    for (const image of images) {
+      await db.execute(
+        `INSERT INTO equipment_images (equipment_id, image) VALUES (?, ?)`,
+        [equipmentId, Buffer.from(image.buffer)] 
+      );
+    }
+
+    res.status(201).json({ message: "Equipment added successfully." });
+  } catch (err) {
+    console.error("❌ Error adding equipment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// DELETE EQUIPMENT ALONG WITH IMAGES
+app.delete("/equipments/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [equipment] = await db.execute("SELECT * FROM equipments WHERE equipment_id = ?", [id]);
+    if (equipment.length === 0) {
+      return res.status(404).json({ message: "Equipment not found." });
+    }
+
+    await db.execute("DELETE FROM equipment_images WHERE equipment_id = ?", [id]);
+
+    await db.execute("DELETE FROM equipments WHERE equipment_id = ?", [id]);
+
+    res.status(200).json({ message: "✅ Equipment and its images removed successfully." });
+  } catch (err) {
+    console.error("❌ Error deleting equipment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // UPDATE EQUIPMENTS
 app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
+  console.log("📥 Received Update Request:", req.body);
+  console.log("📷 New Uploaded Images:", req.files);
+
   const { id } = req.params;
-  const { name, number, type, brand, status, description, user_id, laboratory_id, remove_images } = req.body;
+  const { name, number, type, brand, availability_status = "Available", description, user_id, laboratory_id, remove_images } = req.body;
   const newImages = req.files;
 
-  if (!name || !number || !type || !brand || !status || !description || !user_id || !laboratory_id) {
+  if (!name || !number || !type || !brand || !availability_status || !description || !user_id || !laboratory_id) {
+    console.error("🚨 Missing required fields:", { name, number, type, brand, availability_status, description, user_id, laboratory_id });
     return res.status(400).json({ message: "All fields are required." });
   }
 
   try {
+    const parsedUserId = parseInt(user_id, 10);
+    const parsedLabId = parseInt(laboratory_id, 10);
+
     const [existingEquipment] = await db.execute("SELECT * FROM equipments WHERE equipment_id = ?", [id]);
     if (existingEquipment.length === 0) {
       return res.status(404).json({ message: "Equipment not found." });
     }
 
     if (remove_images) {
-      const imagesToRemove = JSON.parse(remove_images); 
-      for (const imageId of imagesToRemove) {
-        await db.execute("DELETE FROM equipment_images WHERE img_id = ? AND equipment_id = ?", [imageId, id]);
+      try {
+        const imagesToRemove = JSON.parse(remove_images);
+        for (const imageId of imagesToRemove) {
+          await db.execute("DELETE FROM equipment_images WHERE img_id = ? AND equipment_id = ?", [imageId, id]);
+        }
+        console.log(`✅ Removed ${imagesToRemove.length} images`);
+      } catch (err) {
+        console.error("🚨 Error parsing `remove_images` JSON:", err);
       }
     }
 
@@ -518,17 +587,19 @@ app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
 
     await db.execute(
       `UPDATE equipments 
-       SET name = ?, number = ?, type = ?, brand = ?, status = ?, description = ?, user_id = ?, laboratory_id = ? 
+       SET name = ?, number = ?, type = ?, brand = ?, availability_status = ?, description = ?, user_id = ?, laboratory_id = ? 
        WHERE equipment_id = ?`,
-      [name, number, type, brand, status, description, user_id, laboratory_id, id]
+      [name, number, type, brand, availability_status, description, parsedUserId, parsedLabId, id]
     );
+    console.log(`✅ Equipment ID ${id} updated.`);
 
     for (const image of newImages) {
       await db.execute(
         `INSERT INTO equipment_images (equipment_id, image) VALUES (?, ?)`,
-        [id, image.buffer]
+        [id, Buffer.from(image.buffer)]
       );
     }
+    console.log(`✅ ${newImages.length} new images added for equipment ID ${id}.`);
 
     res.status(200).json({ message: "Equipment updated successfully." });
   } catch (err) {

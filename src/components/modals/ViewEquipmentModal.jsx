@@ -1,351 +1,637 @@
-import React, { useState } from "react";
-import Loading from "react-loading";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Modal, Button, Form, Row, Col } from "react-bootstrap";
-import {
-  FaTimes,
-  FaDownload,
-  FaPlus,
-  FaTrash,
-  FaSave,
-  FaEdit,
-} from "react-icons/fa";
+import { Modal, Button, Row, Col, Image, Card, Form } from "react-bootstrap";
+import { FaDownload, FaTimes, FaEdit, FaSave, FaPlus } from "react-icons/fa";
+import ImageUploadModal from "./ImageUploadModal";
+import { openCamera } from "../../utils/camera";
+import ImageViewerModal from "./ImageViewerModal";
 
-const ViewEquipmentModal = ({ show, onClose, equipment, onUpdate }) => {
+const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
   if (!equipment) return null;
 
-  const [editMode, setEditMode] = useState(false);
-  const [updatedData, setUpdatedData] = useState({
+  const [isEditing, setIsEditing] = useState(false);
+  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [laboratories, setLaboratories] = useState([]);
+
+  const [editedEquipment, setEditedEquipment] = useState({
     ...equipment,
-    images: equipment.images || [],
+    images:
+      equipment?.images && Array.isArray(equipment.images)
+        ? equipment.images
+        : [],
   });
-  const [newImages, setNewImages] = useState([]);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const handleImageClick = (index) => {
+    setSelectedImageIndex(index);
+  };
 
-  const handleChange = (e) => {
-    setUpdatedData({ ...updatedData, [e.target.name]: e.target.value });
+  const handlePrevious = () => {
+    setSelectedImageIndex((prevIndex) =>
+      prevIndex > 0 ? prevIndex - 1 : equipment.images.length - 1
+    );
+  };
+
+  const handleNext = () => {
+    setSelectedImageIndex((prevIndex) =>
+      prevIndex < equipment.images.length - 1 ? prevIndex + 1 : 0
+    );
+  };
+
+  const handleOpenImageUploadModal = () => {
+    setShowImageUploadModal(true);
   };
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
-    const totalImages =
-      newImages.length + (equipment.images?.length || 0) + files.length;
-
-    if (totalImages > 3) {
-      alert("⚠️ You can only upload up to 3 images.");
+    if (editedEquipment.images.length + files.length > 3) {
+      alert("You can only upload up to 3 images.");
       return;
     }
 
-    setNewImages([...newImages, ...files]);
+    const newImageFiles = files.map((file) => URL.createObjectURL(file));
+
+    setEditedEquipment((prev) => ({
+      ...prev,
+      images: [...prev.images, ...newImageFiles],
+    }));
+
+    setShowImageUploadModal(false);
   };
 
-  const handleDeleteImage = (index) => {
-    const existingCount = equipment.images ? equipment.images.length : 0;
-    if (index >= existingCount) {
-      setNewImages(newImages.filter((_, i) => i !== index - existingCount));
-    } else {
-      alert("To remove an existing image, please contact support.");
-    }
+  const handleRemoveImage = (index) => {
+    setEditedEquipment((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
   };
 
-  const handleSaveChanges = async () => {
-    if (
-      !updatedData.name ||
-      !updatedData.number ||
-      !updatedData.type ||
-      !updatedData.brand ||
-      !updatedData.status ||
-      !updatedData.description
-    ) {
-      alert("⚠️ Please fill in all required fields.");
-      return;
-    }
+  const handleSave = () => {
+    onSave(editedEquipment);
+    setIsEditing(false);
+  };
 
-    const formDataToSend = new FormData();
-    Object.entries(updatedData).forEach(([key, value]) => {
-      formDataToSend.append(key, value);
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
-
-    formDataToSend.append(
-      "remove_old_images",
-      newImages.length > 0 ? "true" : "false"
-    );
-
-    newImages.forEach((file) => {
-      formDataToSend.append("images", file);
-    });
-
-    setIsLoading(true);
-    try {
-      await axios.put(
-        `${import.meta.env.VITE_API_BASE_URL}/equipments/${
-          equipment.equipment_id
-        }`,
-        formDataToSend,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-
-      alert("✅ Equipment updated successfully!");
-      onUpdate();
-      setEditMode(false);
-      setNewImages([]);
-    } catch (err) {
-      console.error(
-        "❌ Error updating equipment:",
-        err.response?.data || err.message
-      );
-      alert(
-        `❌ Failed to update equipment: ${
-          err.response?.data?.message || "Internal server error"
-        }`
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setUpdatedData({ ...equipment });
-    setNewImages([]);
-    setEditMode(false);
   };
 
   const handleDownloadQR = () => {
-    const link = document.createElement("a");
-    link.href = equipment.qr_img;
-    link.download = `${equipment.name}_QR.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (!equipment.qr_img) return;
+
+    const img = document.createElement("img");
+    img.crossOrigin = "Anonymous";
+    img.src = equipment.qr_img;
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const scaleFactor = 4;
+
+      canvas.width = img.naturalWidth * scaleFactor;
+      canvas.height = img.naturalHeight * scaleFactor;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      const highResQR = canvas.toDataURL("image/png", 1.0);
+
+      const link = document.createElement("a");
+      link.href = highResQR;
+
+      const equipmentName = equipment.name
+        ? equipment.name.replace(/\s+/g, "_")
+        : "equipment";
+      const equipmentNumber = equipment.number
+        ? equipment.number.replace(/\s+/g, "_")
+        : "000";
+      link.download = `${equipmentName}_${equipmentNumber}_qr.png`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    img.onerror = () => {
+      console.error("Failed to load QR image.");
+    };
+  };
+
+  const handleOpenCamera = async () => {
+    try {
+      const imageBlob = await openCamera();
+      if (editedEquipment.images.length >= 3) {
+        alert("You can only upload up to 3 images.");
+        return;
+      }
+
+      const imageURL = URL.createObjectURL(imageBlob);
+
+      setEditedEquipment((prev) => ({
+        ...prev,
+        images: [...prev.images, imageURL],
+      }));
+
+      setShowImageUploadModal(false);
+    } catch (err) {
+      console.error("Camera was closed or an error occurred:", err);
+    }
+  };
+
+  const equipmentTypes = [
+    "Computer Accessory",
+    "Printer / Scanner",
+    "Computer Hardware",
+    "Networking Equipment",
+    "Laboratory Equipment",
+    "Office Equipment",
+    "Multimedia Device",
+    "Others",
+  ];
+
+  const brands = [
+    "Acer",
+    "Asus",
+    "Dell",
+    "Epson",
+    "Altos",
+    "HP",
+    "Lenovo",
+    "Apple",
+    "Samsung",
+    "MSI",
+    "Brother",
+    "Canon",
+    "Logitech",
+  ];
+
+  const operationalStatusOptions = [
+    "Operational",
+    "Needs Repair",
+    "For Disposal",
+    "Under Maintenance",
+    "Decommissioned",
+  ];
+
+  const availabilityStatusOptions = [
+    "Available",
+    "In Use",
+    "Reserved",
+    "Out of Service",
+    "Retired",
+  ];
+
+  useEffect(() => {
+    if (isEditing) {
+      setEditedEquipment({
+        ...equipment,
+        images:
+          equipment?.images && Array.isArray(equipment.images)
+            ? equipment.images
+            : [],
+        laboratory_id: equipment.laboratory?.lab_number || "",
+      });
+    }
+  }, [isEditing, equipment]);
+
+  useEffect(() => {
+    fetchLaboratories();
+  }, []);
+
+  const fetchLaboratories = async () => {
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/laboratories`
+      );
+      setLaboratories(response.data.data || []);
+    } catch (err) {
+      console.error("❌ Error fetching laboratories:", err);
+    }
   };
 
   return (
-    <Modal show={show} onHide={onClose} centered size="lg" animation={true}>
-      <Modal.Header closeButton className="modal-header-custom">
-        <Modal.Title className="fw-bold fs-6">
-          {editMode ? "Edit Equipment" : "View Equipment"}
-        </Modal.Title>
-      </Modal.Header>
+    <>
+      <Modal show={show} onHide={onClose} centered size="xl" scrollable>
+        <Modal.Header className="py-2 bg-dark text-white d-flex align-items-center justify-content-between">
+          <Modal.Title className="fs-6">📋 Equipment Details</Modal.Title>
+          <button
+            type="button"
+            className="btn-close btn-close-white"
+            aria-label="Close"
+            onClick={onClose}
+          ></button>
+        </Modal.Header>
 
-      <Modal.Body>
-        <Row className="align-items-start">
-          {/* Left Column: QR Code + Images */}
-          <Col md={4} className="text-center mb-3 mb-md-0">
-            {/* QR Code Section */}
-            {equipment.qr_img && (
-              <div className="qr-container p-3 border rounded shadow-sm mb-4">
-                <img
-                  src={equipment.qr_img}
-                  alt="QR Code"
-                  className="img-fluid mb-3 rounded"
-                />
-                <Button variant="success" onClick={handleDownloadQR}>
-                  <FaDownload className="me-1" /> Download QR
-                </Button>
-              </div>
-            )}
-
-            {/* Image Section */}
-            <h5 className="fw-bold">Images</h5>
-            <div className="container">
-              <Row className="gx-2 gy-2 justify-content-center">
-                {(equipment.images || [])
-                  .concat(newImages)
-                  .map((img, index) => (
-                    <Col
-                      xs={6}
-                      key={index}
-                      className="d-flex justify-content-center"
+        <Modal.Body className="p-3">
+          <Row className="g-3">
+            {/* Left Side: QR Code & Images */}
+            <Col xs={12} md={4}>
+              <Card className="shadow-sm p-3 text-center">
+                {equipment.qr_img && (
+                  <div className="mb-3 d-flex flex-column align-items-center">
+                    <Image
+                      src={equipment.qr_img}
+                      alt="QR Code"
+                      fluid
+                      className="border border-dark rounded p-2"
+                      style={{ width: "150px" }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="success"
+                      className="mt-2"
+                      style={{ width: "150px" }}
+                      onClick={handleDownloadQR}
                     >
-                      <div className="position-relative image-wrapper">
-                        <img
-                          src={
-                            img instanceof File ? URL.createObjectURL(img) : img
-                          }
-                          alt="Equipment"
-                          className="img-thumbnail image-thumbnail"
-                        />
-                        {editMode && (
-                          <button
-                            type="button"
-                            className="delete-btn"
-                            onClick={() => handleDeleteImage(index)}
-                            title="Delete Image"
+                      <FaDownload className="me-1" /> Download QR
+                    </Button>
+                  </div>
+                )}
+
+                <h6 className="fw-bold mt-3">📷 Equipment Images</h6>
+                <div className="d-flex flex-wrap justify-content-center gap-2">
+                  {editedEquipment.images.map((img, index) => (
+                    <div key={index} className="position-relative">
+                      <Image
+                        src={
+                          img.startsWith("blob:") ||
+                          img.startsWith("data:image")
+                            ? img
+                            : `data:image/jpeg;base64,${img}`
+                        }
+                        alt="Equipment"
+                        className="border rounded shadow-sm"
+                        style={{
+                          width: "80px",
+                          height: "80px",
+                          objectFit: "cover",
+                        }}
+                        onClick={() => handleImageClick(index)}
+                      />
+                      {isEditing && (
+                        <button
+                          type="button"
+                          className="btn-close position-absolute top-0 end-0 bg-white border border-dark rounded-circle"
+                          onClick={() => handleRemoveImage(index)}
+                          style={{ transform: "scale(1.2)" }}
+                        ></button>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Show Upload Button Only If Less Than 3 Images */}
+                  {isEditing && editedEquipment.images.length < 3 && (
+                    <div
+                      className="d-flex align-items-center justify-content-center border border-dashed rounded"
+                      style={{
+                        width: "80px",
+                        height: "80px",
+                        borderWidth: "2px",
+                        cursor: "pointer",
+                        color: "#007bff",
+                        fontSize: "24px",
+                        fontWeight: "bold",
+                        background: "#f8f9fa",
+                      }}
+                      onClick={handleOpenImageUploadModal}
+                    >
+                      <FaPlus />
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </Col>
+
+            {/* Middle Section: Equipment Details (Stacked on mobile, inline on desktop) */}
+            <Col xs={12} md={8}>
+              <Row>
+                <Col xs={12} md={showHistory ? 6 : 12}>
+                  <Card className="shadow-sm p-3 bg-light">
+                    <h6 className="fw-bold">🔧 Equipment Information</h6>
+                    <div className="small">
+                      {[
+                        ["Equipment Name", "name"],
+                        ["Number", "number"],
+                        ["Type", "type"],
+                        ["Brand", "brand"],
+                        ["Availability Status", "availability_status"],
+                        ["Operational Status", "operational_status"],
+                      ].map(([label, key]) => (
+                        <div
+                          key={label}
+                          className="d-flex justify-content-between border-bottom py-1 flex-wrap"
+                        >
+                          <strong>{label}:</strong>
+                          {isEditing ? (
+                            key === "type" ? (
+                              <Form.Select
+                                name="type"
+                                value={editedEquipment.type || ""}
+                                onChange={(e) =>
+                                  setEditedEquipment({
+                                    ...editedEquipment,
+                                    type: e.target.value,
+                                  })
+                                }
+                                className="ms-2"
+                                size="sm"
+                              >
+                                <option value="">Select Type</option>
+                                {equipmentTypes.map((type, index) => (
+                                  <option key={index} value={type}>
+                                    {type}
+                                  </option>
+                                ))}
+                              </Form.Select>
+                            ) : key === "brand" ? (
+                              <div className="input-group input-group-sm w-100">
+                                {/* Brand Dropdown */}
+                                <Form.Select
+                                  className="form-select"
+                                  name="brand"
+                                  value={
+                                    brands.includes(editedEquipment.brand)
+                                      ? editedEquipment.brand
+                                      : "Other"
+                                  }
+                                  onChange={(e) => {
+                                    setEditedEquipment({
+                                      ...editedEquipment,
+                                      brand: e.target.value,
+                                    });
+                                  }}
+                                >
+                                  <option value="">Select Brand</option>
+                                  {brands.map((brand, index) => (
+                                    <option key={index} value={brand}>
+                                      {brand}
+                                    </option>
+                                  ))}
+                                  <option value="Other">Other</option>
+                                </Form.Select>
+
+                                {/* Always Editable Text Input */}
+                                <Form.Control
+                                  type="text"
+                                  className="form-control"
+                                  name="brand"
+                                  value={editedEquipment.brand}
+                                  onChange={(e) =>
+                                    setEditedEquipment({
+                                      ...editedEquipment,
+                                      brand: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Other"
+                                />
+                              </div>
+                            ) : key === "availability_status" ? (
+                              <Form.Select
+                                name="availability_status"
+                                value={
+                                  editedEquipment.availability_status || ""
+                                }
+                                onChange={(e) =>
+                                  setEditedEquipment({
+                                    ...editedEquipment,
+                                    availability_status: e.target.value,
+                                  })
+                                }
+                                className="ms-2"
+                                size="sm"
+                              >
+                                <option value="">Select Availability</option>
+                                {availabilityStatusOptions.map(
+                                  (status, index) => (
+                                    <option key={index} value={status}>
+                                      {status}
+                                    </option>
+                                  )
+                                )}
+                              </Form.Select>
+                            ) : key === "operational_status" ? (
+                              <Form.Select
+                                name="operational_status"
+                                value={editedEquipment.operational_status || ""}
+                                onChange={(e) =>
+                                  setEditedEquipment({
+                                    ...editedEquipment,
+                                    operational_status: e.target.value,
+                                  })
+                                }
+                                className="ms-2"
+                                size="sm"
+                              >
+                                <option value="">
+                                  Select Operational Status
+                                </option>
+                                {operationalStatusOptions.map(
+                                  (status, index) => (
+                                    <option key={index} value={status}>
+                                      {status}
+                                    </option>
+                                  )
+                                )}
+                              </Form.Select>
+                            ) : (
+                              <Form.Control
+                                type="text"
+                                name={key}
+                                value={editedEquipment[key] || ""}
+                                onChange={(e) =>
+                                  setEditedEquipment({
+                                    ...editedEquipment,
+                                    [key]: e.target.value,
+                                  })
+                                }
+                                className="ms-2"
+                                size="sm"
+                              />
+                            )
+                          ) : (
+                            <span>{editedEquipment[key] || "N/A"}</span>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Separate Lab Location Field */}
+                      <div className="d-flex justify-content-between border-bottom py-1 flex-wrap">
+                        <strong>Lab Location:</strong>
+                        {isEditing ? (
+                          <Form.Select
+                            name="laboratory_id"
+                            value={editedEquipment.laboratory_id || ""}
+                            onChange={(e) =>
+                              setEditedEquipment({
+                                ...editedEquipment,
+                                laboratory_id: e.target.value,
+                              })
+                            }
+                            className="ms-2"
+                            size="sm"
                           >
-                            <FaTrash />
-                          </button>
+                            <option value="">Select Laboratory</option>
+                            {laboratories.map((lab) => (
+                              <option
+                                key={lab.lab_number}
+                                value={lab.lab_number}
+                              >
+                                {lab.lab_name} (#{lab.lab_number})
+                              </option>
+                            ))}
+                          </Form.Select>
+                        ) : (
+                          <span>
+                            {equipment.laboratory
+                              ? `${
+                                  equipment.laboratory.lab_name || "Unknown Lab"
+                                } ${equipment.laboratory.lab_number || ""}`
+                              : "N/A"}
+                          </span>
                         )}
                       </div>
-                    </Col>
-                  ))}
+                    </div>
+                  </Card>
 
-                {/* Add Image Button in Second Row */}
-                {editMode &&
-                  (equipment.existing_images?.length || 0) + newImages.length <
-                    3 && (
-                    <Col xs={6} className="d-flex justify-content-center">
-                      <label className="btn btn-outline-primary add-image-btn">
-                        <FaPlus className="me-1" /> Add Image
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          hidden
-                        />
-                      </label>
-                    </Col>
-                  )}
+                  {/* Additional Information */}
+                  <Card className="shadow-sm p-3 mt-3 mb-3">
+                    <h6 className="fw-bold">📍 Additional Information</h6>
+                    <div className="small">
+                      {[
+                        [
+                          "Added By",
+                          equipment.user
+                            ? `${equipment.user.first_name} ${equipment.user.last_name} (${equipment.user.user_type})`
+                            : "N/A",
+                        ],
+                        ["Date Added", formatDate(equipment.created_at)],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="d-flex justify-content-between border-bottom py-1 flex-wrap"
+                        >
+                          <strong>{label}:</strong>{" "}
+                          <span>{value || "N/A"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </Col>
+
+                {/* Right Side: Compact History Table */}
+                {showHistory && (
+                  <Col xs={12} md={6}>
+                    <Card className="shadow-sm p-2 text-center">
+                      <h6 className="fw-bold mb-2">📜 Equipment History</h6>
+                      <div className="table-responsive">
+                        <table className="table table-bordered table-sm small">
+                          <thead className="table-dark text-center">
+                            <tr>
+                              <th className="px-2 py-1">Date</th>
+                              <th className="px-2 py-1">Action</th>
+                              <th className="px-2 py-1">Performed By</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-center">
+                            <tr>
+                              <td className="px-2 py-1">Feb 10, 2025</td>
+                              <td className="px-2 py-1">Maintenance</td>
+                              <td className="px-2 py-1">John Doe</td>
+                            </tr>
+                            <tr>
+                              <td className="px-2 py-1">Feb 5, 2025</td>
+                              <td className="px-2 py-1">Checked Out</td>
+                              <td className="px-2 py-1">Jane Smith</td>
+                            </tr>
+                            <tr>
+                              <td className="px-2 py-1">Jan 22, 2025</td>
+                              <td className="px-2 py-1">Repaired</td>
+                              <td className="px-2 py-1">Admin</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  </Col>
+                )}
               </Row>
-            </div>
-          </Col>
+            </Col>
+          </Row>
+        </Modal.Body>
 
-          {/* Right Column: Equipment Details Form */}
-          <Col md={8}>
-            <Form>
-              {["name", "number", "type", "brand"].map((field, idx) => (
-                <Form.Group className="mb-3" key={idx}>
-                  <Form.Label className="fw-bold text-capitalize">
-                    {field}
-                  </Form.Label>
-                  <Form.Control
-                    type="text"
-                    name={field}
-                    value={updatedData[field] || ""}
-                    onChange={handleChange}
-                    disabled={!editMode}
-                    placeholder={`Enter ${field}`}
-                  />
-                </Form.Group>
-              ))}
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold">Status</Form.Label>
-                <Form.Select
-                  name="status"
-                  value={updatedData.status || ""}
-                  onChange={handleChange}
-                  disabled={!editMode}
-                >
-                  {[
-                    "Operational",
-                    "Needs Repair",
-                    "For Disposal",
-                    "Under Maintenance",
-                    "Decommissioned",
-                  ].map((status, idx) => (
-                    <option key={idx} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold">Description</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
-                  name="description"
-                  value={updatedData.description || ""}
-                  onChange={handleChange}
-                  disabled={!editMode}
-                  placeholder="Enter description..."
-                />
-              </Form.Group>
-            </Form>
-          </Col>
-        </Row>
-      </Modal.Body>
+        <Modal.Footer className="py-2 bg-light">
+          {isEditing ? (
+            <>
+              <Button size="sm" variant="success" onClick={handleSave}>
+                <FaSave className="me-1" /> Save Changes
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditedEquipment({ ...equipment });
+                }}
+              >
+                <FaTimes className="me-1" /> Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  setEditedEquipment({
+                    ...equipment,
+                    images:
+                      equipment?.images && Array.isArray(equipment.images)
+                        ? equipment.images
+                        : [],
+                  });
+                  setIsEditing(true);
+                }}
+              >
+                <FaEdit className="me-1" /> Edit
+              </Button>
 
-      <Modal.Footer className="justify-content-end">
-        {editMode ? (
-          <>
-            <Button
-              variant="success"
-              onClick={handleSaveChanges}
-              className="me-2"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loading type="spin" color="#fff" height={20} width={20} />
-              ) : (
-                <>
-                  <FaSave className="me-1" /> Save Changes
-                </>
-              )}
-            </Button>
-            <Button variant="secondary" onClick={handleCancel}>
-              <FaTimes className="me-1" /> Cancel
-            </Button>
-          </>
-        ) : (
-          <Button variant="primary" onClick={() => setEditMode(true)}>
-            <FaEdit className="me-1" /> Edit
-          </Button>
-        )}
-      </Modal.Footer>
-      <style>{`
-        .modal-header-custom {
-          background-color: #f1f3f5;
-          border-bottom: 1px solid #dee2e6;
-          height: 40px;
-        }
-        .qr-container {
-          background-color: #ffffff;
-        }
-        .image-wrapper {
-          width: 120px;
-          height: 120px;
-        }
-        .image-thumbnail {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          border-radius: 10px;
-          transition: transform 0.2s;
-        }
-        .image-thumbnail:hover {
-          transform: scale(1.05);
-        }
-        .delete-btn {
-          position: absolute;
-          top: 5px;
-          right: 5px;
-          background: #dc3545;
-          color: #ffffff;
-          border: none;
-          border-radius: 50%;
-          width: 24px;
-          height: 24px;
-          font-size: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          opacity: 0.8;
-          transition: opacity 0.2s;
-        }
-        .delete-btn:hover {
-          opacity: 1;
-        }
-        .add-image-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 120px;
-          height: 120px;
-          border: 2px dashed #007bff;
-          border-radius: 10px;
-          color: #007bff;
-          transition: background-color 0.3s, color 0.3s;
-          cursor: pointer;
-        }
-        .add-image-btn:hover {
-          background-color: #007bff;
-          color: #ffffff;
-        }
-      `}</style>
-    </Modal>
+              <Button size="sm" variant="secondary" onClick={onClose}>
+                <FaTimes className="me-1" /> Close
+              </Button>
+              <Button
+                size="sm"
+                variant="info"
+                onClick={() => setShowHistory((prev) => !prev)}
+              >
+                {showHistory ? "Hide History" : "Show History"}
+              </Button>
+            </>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* Image Upload Modal */}
+      {showImageUploadModal && (
+        <ImageUploadModal
+          onClose={() => setShowImageUploadModal(false)}
+          onOpenCamera={handleOpenCamera}
+          onUploadImage={handleImageUpload}
+        />
+      )}
+
+      <ImageViewerModal
+        show={selectedImageIndex !== null}
+        onClose={() => setSelectedImageIndex(null)}
+        images={equipment.images}
+        currentIndex={selectedImageIndex}
+        onNext={handleNext}
+        onPrev={handlePrevious}
+      />
+    </>
   );
 };
 

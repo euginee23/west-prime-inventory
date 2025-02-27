@@ -143,7 +143,10 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="container mt-3" style={{ maxWidth: "1400px", margin: "auto" }}>
+    <div
+      className="container mt-3"
+      style={{ maxWidth: "1400px", margin: "auto" }}
+    >
       {/* Equipment Summary Cards */}
       <div className="row gx-2 gy-2">
         {equipmentSummary.map((item, index) => (
@@ -279,26 +282,34 @@ const Dashboard = () => {
             </h6>
 
             <div className="d-flex align-items-center gap-2 flex-column flex-sm-row px-2">
-              <Form.Control
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-100"
-                style={{ fontSize: "0.8rem", padding: "6px" }}
-              />
+              <Form.Group className="w-100">
+                <Form.Control
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  onBlur={(e) => setStartDate(e.target.value)}
+                  className="w-100"
+                  style={{ fontSize: "0.85rem", padding: "6px" }}
+                />
+              </Form.Group>
+
               <span
-                className="d-none d-sm-block text-muted"
+                className="text-muted d-none d-sm-block"
                 style={{ fontSize: "0.85rem" }}
               >
                 to
               </span>
-              <Form.Control
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-100"
-                style={{ fontSize: "0.8rem", padding: "6px" }}
-              />
+
+              <Form.Group className="w-100">
+                <Form.Control
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  onBlur={(e) => setEndDate(e.target.value)}
+                  className="w-100"
+                  style={{ fontSize: "0.85rem", padding: "6px" }}
+                />
+              </Form.Group>
             </div>
 
             <div className="d-flex gap-2 mt-2 px-2">
