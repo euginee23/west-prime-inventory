@@ -36,7 +36,7 @@
     "react-loading": "^2.0.3",
     "react-qr-scanner": "^1.0.0-alpha.11",
     "react-router-dom": "^7.1.5",
-    "react-toastify": "^11.0.3",
+    "react-toastify": "^11.0.5",
     "reactstrap": "^9.2.3",
     "recharts": "^2.15.1",
     "xlsx": "^0.18.5"

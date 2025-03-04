@@ -3,7 +3,6 @@ export const openCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
 
-      // Modal Container
       const modal = document.createElement("div");
       Object.assign(modal.style, {
         position: "fixed",
@@ -11,7 +10,7 @@ export const openCamera = async () => {
         left: "0",
         width: "100vw",
         height: "100vh",
-        background: "rgba(0, 0, 0, 0.9)", // Darker background
+        background: "rgba(0, 0, 0, 0.9)", 
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -19,7 +18,6 @@ export const openCamera = async () => {
         flexDirection: "column",
       });
 
-      // Video Container
       const videoContainer = document.createElement("div");
       Object.assign(videoContainer.style, {
         display: "flex",
@@ -27,7 +25,7 @@ export const openCamera = async () => {
         alignItems: "center",
         justifyContent: "center",
         width: "90vw",
-        maxWidth: "500px", // Slightly smaller for better aesthetics
+        maxWidth: "500px", 
         background: "black",
         borderRadius: "15px",
         padding: "15px",
@@ -35,7 +33,6 @@ export const openCamera = async () => {
         boxShadow: "0px 4px 20px rgba(255, 255, 255, 0.3)",
       });
 
-      // Video Element
       const video = document.createElement("video");
       video.srcObject = stream;
       video.autoplay = true;
@@ -47,9 +44,8 @@ export const openCamera = async () => {
         boxShadow: "0px 0px 15px rgba(255, 255, 255, 0.5)",
       });
 
-      // Capture Button
       const captureButton = document.createElement("button");
-      captureButton.innerHTML = "&#128247;"; // Camera Icon
+      captureButton.innerHTML = "&#128247;"; 
       Object.assign(captureButton.style, {
         position: "absolute",
         bottom: "-40px",
@@ -73,9 +69,8 @@ export const openCamera = async () => {
         captureButton.style.transform = "translateX(-50%) scale(1)";
       });
 
-      // Cancel Button
       const cancelButton = document.createElement("button");
-      cancelButton.innerHTML = "&#10060;"; // Cross Icon
+      cancelButton.innerHTML = "&#10060;"; 
       Object.assign(cancelButton.style, {
         position: "absolute",
         top: "10px",
@@ -104,7 +99,6 @@ export const openCamera = async () => {
       modal.appendChild(videoContainer);
       document.body.appendChild(modal);
 
-      // Capture Image
       captureButton.addEventListener("click", () => {
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
@@ -121,7 +115,6 @@ export const openCamera = async () => {
         }, "image/jpeg");
       });
 
-      // Cancel Camera
       cancelButton.addEventListener("click", () => {
         video.srcObject.getTracks().forEach((track) => track.stop());
         document.body.removeChild(modal);

@@ -161,7 +161,7 @@ export default function Equipments() {
     const user = getLoggedInUser();
 
     if (!user || !user.user_id) {
-      setShowReLoginModal(true); // Show ReLoginModal when user session expires
+      setShowReLoginModal(true);
       return;
     }
 
@@ -392,7 +392,7 @@ export default function Equipments() {
               {/* Reset Button (Full Width on Mobile) */}
               <div className="col">
                 <button
-                  className="btn btn-sm btn-outline-secondary w-100"
+                  className="btn btn-sm btn-primary w-100"
                   onClick={() => {
                     setSearchQuery("");
                     setFilterType("");

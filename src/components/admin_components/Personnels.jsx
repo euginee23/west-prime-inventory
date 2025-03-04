@@ -161,7 +161,10 @@ export default function Personnels() {
   };
 
   return (
-    <div className="container-fluid mt-3 px-2">
+    <div
+      className="container mt-3"
+      style={{ maxWidth: "900px", margin: "auto" }}
+    >
       <ToastContainer />
 
       {/* Delete Confirmation Modal */}
