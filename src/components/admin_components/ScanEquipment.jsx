@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import QrScanner from "react-qr-scanner";
 import axios from "axios";
-import { Card, Button } from "react-bootstrap";
+import { Card, Button, Dropdown, DropdownButton } from "react-bootstrap";
 import ReactLoading from "react-loading";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import beepSound from "../../assets/beep.mp3";
 import ImageViewerModal from "../modals/ImageViewerModal";
-import ConfirmActionModal from "../modals/ConfirmActionModal";
+import CheckOutActionModal from "../modals/CheckOutActionModal";
 import ReturnEquipmentModal from "../modals/ReturnEquipmentModal";
 
 const ScanEquipment = () => {
@@ -24,10 +24,12 @@ const ScanEquipment = () => {
   const [selectedAction, setSelectedAction] = useState("");
   const [searchNumber, setSearchNumber] = useState("");
 
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showCheckOutModal, setShowCheckOutModal] = useState(false);
   const [actionReason, setActionReason] = useState("");
 
   const [showReturnModal, setShowReturnModal] = useState(false);
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     const updateScannerSize = () => {
@@ -51,17 +53,39 @@ const ScanEquipment = () => {
     "Student Project - Assigned to students for a project or research.",
     "Faculty Use - Used by teachers for lesson planning or instructional activities.",
     "Laboratory Session - Allocated for ICT laboratory use.",
-    "Routine Maintenance - Checked or serviced for preventive maintenance.",
-    "Software Update - Equipment is updated with the latest software and security patches.",
-    "Repair - Sent for repair due to hardware or software issues.",
     "External Training - Borrowed for workshops, training, or seminars.",
     "Borrowed by Faculty - Temporarily taken by a teacher for official use.",
     "Borrowed by Student - Temporarily loaned to a student for academic purposes.",
-    "Equipment Return - Returned after use to the storage or lab inventory.",
-    "Decommissioning - The equipment is outdated and removed from use.",
-    "Disposal/Recycling - The equipment is no longer functional and will be recycled.",
-    "Lost/Stolen Report - The equipment is missing or stolen and needs to be reported.",
   ];
+
+  const markEquipmentActions = [
+    "Mark as Damaged - Equipment is not functional and needs repair.",
+    "Mark as Missing - Equipment is lost or unaccounted for.",
+    "Mark as Defective - Equipment has a defect but is still operational.",
+    "Mark as Under Observation - Equipment is being monitored for potential issues.",
+    "Mark as Inactive - Equipment is no longer in active use but remains in the inventory.",
+    "Mark as Reserved - Equipment is set aside for specific use.",
+    "Mark as For Disposal - Equipment is outdated or beyond repair and will be removed.",
+  ];
+
+  const maintenanceActions = [
+    "Scheduled Maintenance - Routine maintenance for upkeep.",
+    "Urgent Repair - Equipment needs immediate fixing.",
+    "Software Update - Updating system software or firmware.",
+    "Reformat & Reinstall - Reinstalling OS or applications.",
+    "Hardware Replacement - Components need to be replaced.",
+    "Cleaning & Dusting - General maintenance for longevity.",
+    "Inspection & Testing - Checking for potential issues.",
+  ];
+
+  const handleActionClick = (action) => {
+    if (selectedAction === action) {
+      setSelectedAction(null);
+    } else {
+      setSelectedAction(action);
+      setShowCheckOutModal(false);
+    }
+  };
 
   const fetchEquipmentDetails = async (qrData) => {
     if (!qrData || isNaN(qrData)) {
@@ -81,8 +105,10 @@ const ScanEquipment = () => {
       setEquipment(response.data);
       setError("");
 
-      if (response.data.availability_status === "Checked Out") {
-        setShowReturnModal(true);
+      if (response.data.availability_status === "In-Use") {
+        toast.info("Equipment is currently In-Use. Choose an action.", {
+          position: "top-center",
+        });
       }
     } catch (err) {
       setError("Equipment not found or invalid QR code.");
@@ -154,15 +180,14 @@ const ScanEquipment = () => {
     setScanResult(null);
     setSearchNumber("");
     setSelectedAction("");
-    setShowConfirmModal(false);
+    setShowCheckOutModal(false);
     setShowReturnModal(false);
     setIsScanning(false);
-    toast.info("Scan reset successfully.", { position: "top-center" });
-  
+
     setTimeout(() => {
       setIsScanning(true);
-    }, 500); 
-  };  
+    }, 500);
+  };
 
   const handleError = (err) => {
     console.error(err);
@@ -196,13 +221,15 @@ const ScanEquipment = () => {
         show={showReturnModal}
         onClose={() => setShowReturnModal(false)}
         equipment={equipment}
+        handleClear={handleClear}
       />
 
-      <ConfirmActionModal
-        show={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
+      <CheckOutActionModal
+        show={showCheckOutModal}
+        onClose={() => setShowCheckOutModal(false)}
         actionReason={actionReason}
         equipment={equipment}
+        handleClear={handleClear}
       />
 
       {/* Search Input */}
@@ -243,7 +270,7 @@ const ScanEquipment = () => {
         <div className="col-md-7 mt-2 mt-md-0">
           {/* Equipment Information */}
           <Card className="shadow-sm p-3 bg-light">
-            <h6 className="fw-bold">🔧 Equipment Information</h6>
+            <h6 className="fw-bold mb-3">EQUIPMENT INFORMATION:</h6>
             {loading ? (
               <div className="d-flex justify-content-center py-3">
                 <ReactLoading
@@ -288,7 +315,7 @@ const ScanEquipment = () => {
 
           {/* Additional Information */}
           <Card className="shadow-sm p-3 mt-3 mb-3">
-            <h6 className="fw-bold">📍 Additional Information</h6>
+            <h6 className="fw-bold mb-3">ADDITIONAL INFORMATION:</h6>
             {loading ? (
               <div className="d-flex justify-content-center py-3">
                 <ReactLoading
@@ -331,7 +358,7 @@ const ScanEquipment = () => {
 
           {/* Equipment Images */}
           <Card className="shadow-sm p-3 text-center">
-            <h6 className="fw-bold">📷 Equipment Images</h6>
+            <h6 className="fw-bold">EQUIPMENT IMAGES:</h6>
             {loading ? (
               <div className="d-flex justify-content-center py-3">
                 <ReactLoading
@@ -417,85 +444,183 @@ const ScanEquipment = () => {
                 />
               )}
             </div>
-          </Card>
-
-          {/* Actions */}
-          <Card className="mt-2 p-3 text-center">
-            <h6 className="fw-bold">🎯 Equipment Actions</h6>
-
-            {equipment ? (
-              <>
-                {/* Action Dropdown */}
-                <div className="dropdown">
-                  <button
-                    className="btn btn-outline-secondary dropdown-toggle w-100 mt-2"
-                    type="button"
-                    id="actionDropdown"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
-                  >
-                    {selectedAction
-                      ? selectedAction.split(" - ")[0]
-                      : "Select an Action"}
-                  </button>
-
-                  <ul
-                    className="dropdown-menu w-100"
-                    aria-labelledby="actionDropdown"
-                    style={{ maxHeight: "200px", overflowY: "auto" }}
-                  >
-                    <li>
-                      <button className="dropdown-item disabled text-muted">
-                        Select an Action
-                      </button>
-                    </li>
-                    {equipmentActions.map((action, index) => (
-                      <li key={index}>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => setSelectedAction(action)}
-                        >
-                          {action.split(" - ")[0]}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Confirm Button */}
-                <Button
-                  variant="success"
-                  size="sm"
-                  className="w-100 mt-2"
-                  onClick={() => {
-                    if (!selectedAction) {
-                      toast.warn("Please select an action first.", {
-                        position: "top-center",
-                      });
-                    } else {
-                      setActionReason(selectedAction);
-                      setShowConfirmModal(true);
-                    }
-                  }}
-                >
-                  Confirm Action
-                </Button>
-              </>
-            ) : (
-              <p className="text-muted">
-                Please scan an equipment QR code to select an action.
-              </p>
-            )}
-
             {/* Clear Button */}
             <Button
-              variant="secondary"
+              variant="danger"
               size="sm"
               className="w-100 mt-2"
               onClick={handleClear}
             >
               Clear
             </Button>
+          </Card>
+
+          {/* Actions Section */}
+          <Card className="mt-2 p-3 text-center">
+            <h6 className="fw-bold">Equipment Actions</h6>
+
+            {equipment ? (
+              equipment.availability_status === "In-Use" ? (
+                <div className="d-flex flex-column gap-2 mt-2">
+                  {/* Return Equipment Button */}
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="text-white"
+                    onClick={() => setShowReturnModal(true)}
+                  >
+                    Return Equipment
+                  </Button>
+
+                  {/* Mark as Lost Button */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="text-white"
+                    onClick={() => {
+                      toast.warn("Mark as Lost clicked!", {
+                        position: "top-center",
+                      });
+                    }}
+                  >
+                    Mark as Lost
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="d-flex flex-column gap-2 mt-2">
+                    {/* Mark Equipment Button */}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="text-white"
+                      onClick={() => handleActionClick("Mark Equipment")}
+                    >
+                      Mark Equipment
+                    </Button>
+
+                    {/* Check Out Button */}
+                    <Button
+                      variant="success"
+                      size="sm"
+                      className="text-white"
+                      onClick={() => handleActionClick("Check Out")}
+                    >
+                      Check Out
+                    </Button>
+
+                    {/* Maintenance Button */}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="text-white"
+                      onClick={() => handleActionClick("Maintenance")}
+                    >
+                      Maintenance
+                    </Button>
+
+                    {/* Transfer Equipment Button */}
+                    <Button
+                      variant="warning"
+                      size="sm"
+                      className="text-dark"
+                      onClick={() => {
+                        toast.info("Transfer Equipment clicked!", {
+                          position: "top-center",
+                        });
+                      }}
+                    >
+                      Transfer Equipment
+                    </Button>
+                  </div>
+
+                  {/* Action Dropdowns (Only One Visible at a Time) */}
+                  {selectedAction && (
+                    <div className="mt-3 p-3 border rounded bg-light">
+                      <DropdownButton
+                        id="actionDropdown"
+                        title={`Select ${selectedAction || "Action"}`}
+                        variant="secondary"
+                        className="w-100"
+                      >
+                        <Dropdown.Item disabled className="text-muted">
+                          Select an Action
+                        </Dropdown.Item>
+
+                        {/* Check Out - Open Modal */}
+                        {selectedAction === "Check Out" &&
+                          equipmentActions.map((action, index) => (
+                            <Dropdown.Item
+                              key={index}
+                              onClick={() => {
+                                setSelectedAction(null);
+                                setActionReason(action);
+                                setShowCheckOutModal(true);
+                              }}
+                            >
+                              {action.split(" - ")[0]}
+                            </Dropdown.Item>
+                          ))}
+
+                        {/* Mark Equipment - Show Toast Message */}
+                        {selectedAction === "Mark Equipment" &&
+                          markEquipmentActions.map((action, index) => (
+                            <Dropdown.Item
+                              key={index}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSelectedAction(null);
+                                toast.info(
+                                  `Action Selected: ${action.split(" - ")[0]}`,
+                                  {
+                                    position: "top-center",
+                                  }
+                                );
+                              }}
+                            >
+                              {action.split(" - ")[0]}
+                            </Dropdown.Item>
+                          ))}
+
+                        {/* Maintenance - Show Toast Message */}
+                        {selectedAction === "Maintenance" &&
+                          maintenanceActions.map((action, index) => (
+                            <Dropdown.Item
+                              key={index}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSelectedAction(null);
+                                toast.info(
+                                  `Action Selected: ${action.split(" - ")[0]}`,
+                                  {
+                                    position: "top-center",
+                                  }
+                                );
+                              }}
+                            >
+                              {action.split(" - ")[0]}
+                            </Dropdown.Item>
+                          ))}
+                      </DropdownButton>
+
+                      {/* Cancel Button */}
+                      <Button
+                        variant="dark"
+                        size="sm"
+                        className="mt-2 w-100 text-white"
+                        onClick={() => setSelectedAction(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <p className="text-muted">
+                Please scan an equipment QR code to select an action.
+              </p>
+            )}
           </Card>
         </div>
       </div>

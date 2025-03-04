@@ -482,7 +482,7 @@ app.delete("/personnels/:id", async (req, res) => {
     console.error("❌ Error removing personnel:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
-    if (connection) connection.release(); 
+    if (connection) connection.release();
   }
 });
 
@@ -547,7 +547,9 @@ app.get("/equipments", async (req, res) => {
       if (row.image) {
         equipmentMap
           .get(row.equipment_id)
-          .images.push(`data:image/jpeg;base64,${row.image.toString("base64")}`);
+          .images.push(
+            `data:image/jpeg;base64,${row.image.toString("base64")}`
+          );
       }
     });
 
@@ -558,7 +560,7 @@ app.get("/equipments", async (req, res) => {
     console.error("❌ Error fetching equipments:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
-    if (connection) connection.release(); 
+    if (connection) connection.release();
   }
 });
 
@@ -689,7 +691,7 @@ app.get("/equipments/search/:number", async (req, res) => {
     console.error("❌ Error searching equipment:", error);
     res.status(500).json({ error: "Server error" });
   } finally {
-    if (connection) connection.release(); 
+    if (connection) connection.release();
   }
 });
 
@@ -737,7 +739,7 @@ app.post("/equipments", upload.array("images", 3), async (req, res) => {
 
   let connection;
   try {
-    connection = await db.getConnection(); 
+    connection = await db.getConnection();
 
     const parsedUserId = parseInt(user_id, 10);
     const parsedLabId = parseInt(laboratory_id, 10);
@@ -781,7 +783,7 @@ app.post("/equipments", upload.array("images", 3), async (req, res) => {
     console.error("❌ Error adding equipment:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
-    if (connection) connection.release(); 
+    if (connection) connection.release();
   }
 });
 
@@ -801,11 +803,14 @@ app.delete("/equipments/:id", async (req, res) => {
       return res.status(404).json({ message: "Equipment not found." });
     }
 
-    await connection.execute("DELETE FROM equipment_images WHERE equipment_id = ?", [
+    await connection.execute(
+      "DELETE FROM equipment_images WHERE equipment_id = ?",
+      [id]
+    );
+
+    await connection.execute("DELETE FROM equipments WHERE equipment_id = ?", [
       id,
     ]);
-
-    await connection.execute("DELETE FROM equipments WHERE equipment_id = ?", [id]);
 
     res
       .status(200)
@@ -814,7 +819,7 @@ app.delete("/equipments/:id", async (req, res) => {
     console.error("❌ Error deleting equipment:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
-    if (connection) connection.release(); 
+    if (connection) connection.release();
   }
 });
 
@@ -935,14 +940,13 @@ app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
     console.error("❌ Error updating equipment:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
-    if (connection) connection.release(); 
+    if (connection) connection.release();
   }
 });
 
 // SEARCH CLIENTS BY NAME, EMAIL, OR CONTACT NUMBER
 app.get("/clients/search", async (req, res) => {
   const { query } = req.query;
-
   if (!query) {
     return res.status(400).json({ message: "Search query is required." });
   }
@@ -950,6 +954,7 @@ app.get("/clients/search", async (req, res) => {
   let connection;
   try {
     connection = await db.getConnection();
+
     const [clients] = await connection.execute(
       `SELECT * FROM clients 
        WHERE contact_number LIKE ? 
@@ -963,11 +968,11 @@ app.get("/clients/search", async (req, res) => {
     console.error("❌ Error searching clients:", error);
     res.status(500).json({ message: "Internal server error" });
   } finally {
-    if (connection) connection.release();
+    if (connection) connection.release(); 
   }
 });
 
-// SCANNED EQUIPMENT ACTION
+// SCANNED EQUIPMENT ACTION - CHECK OUT
 app.post("/scanned-equipment-actions", async (req, res) => {
   const {
     equipment_id,
@@ -995,7 +1000,7 @@ app.post("/scanned-equipment-actions", async (req, res) => {
 
   let connection;
   try {
-    connection = await db.getConnection(); 
+    connection = await db.getConnection();
     let clientId;
 
     const [existingClient] = await connection.execute(
@@ -1008,17 +1013,23 @@ app.post("/scanned-equipment-actions", async (req, res) => {
 
     if (existingClient.length > 0) {
       clientId = existingClient[0].client_id;
+      await connection.execute(
+        "UPDATE clients SET client_type = ? WHERE client_id = ?",
+        [client.client_type, clientId]
+      );
     } else {
-
       const [newClient] = await connection.execute(
-        "INSERT INTO clients (first_name, middle_name, last_name, contact_number, email, address) VALUES (?, ?, ?, ?, ?, ?);",
+        `INSERT INTO clients (first_name, middle_name, last_name, 
+          contact_number, email, address, client_type) 
+         VALUES (?, ?, ?, ?, ?, ?, ?);`,
         [
           client.first_name,
-          client.middle_name,
+          client.middle_name || null,
           client.last_name,
           client.contact_number,
-          client.email,
-          client.address,
+          client.email || null,
+          client.address || null,
+          client.client_type,
         ]
       );
       clientId = newClient.insertId;
@@ -1026,8 +1037,9 @@ app.post("/scanned-equipment-actions", async (req, res) => {
 
     await connection.execute(
       `INSERT INTO scanned_equipments_actions 
-       (equipment_id, lab_id, user_id, client_id, tracking_code, reason, date, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+       (equipment_id, lab_id, user_id, client_id, tracking_code, 
+       reason, date, status, transaction_type) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         equipment_id,
         lab_id,
@@ -1037,80 +1049,93 @@ app.post("/scanned-equipment-actions", async (req, res) => {
         reason,
         date,
         status,
-      ]
-    );
-
-    res
-      .status(201)
-      .json({ message: "Scanned equipment action recorded successfully." });
-  } catch (err) {
-    console.error("❌ Error saving scanned equipment action:", err);
-    res.status(500).json({ message: "Internal server error" });
-  } finally {
-    if (connection) connection.release(); 
-  }
-});
-
-// RETURN EQUIPMENT ACTION
-app.post("/scanned-equipment-actions/return/:equipment_id", async (req, res) => {
-  const { equipment_id } = req.params;
-  const { lab_id, user_id, date } = req.body; 
-
-  if (!lab_id || !user_id || !date) {
-    return res.status(400).json({ message: "All required fields must be provided." });
-  }
-
-  let connection;
-  try {
-    connection = await db.getConnection();
-
-    const [lastTransaction] = await connection.execute(
-      `SELECT * FROM scanned_equipments_actions 
-       WHERE equipment_id = ? 
-       ORDER BY date DESC LIMIT 1`,
-      [equipment_id]
-    );
-
-    if (lastTransaction.length === 0) {
-      return res.status(404).json({ message: "No previous transaction found." });
-    }
-
-    const lastAction = lastTransaction[0];
-
-    await connection.execute(
-      `INSERT INTO scanned_equipments_actions 
-       (equipment_id, lab_id, user_id, client_id, tracking_code, reason, date, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      [
-        equipment_id,
-        lab_id,
-        user_id,
-        lastAction.client_id,
-        lastAction.tracking_code, 
-        lastAction.reason, 
-        date,
-        "Returned", 
+        "Check Out",
       ]
     );
 
     await connection.execute(
       "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
-      ["Available", equipment_id]
+      ["In-Use", equipment_id]
     );
 
-    res.status(201).json({
-      message: "Equipment successfully returned!",
-      tracking_code: lastAction.tracking_code,
-      reason: lastAction.reason,
-      status: "Returned",
-    });
+    res.status(201).json({ message: "Equipment successfully checked out!" });
   } catch (err) {
-    console.error("❌ Error returning equipment:", err);
-    res.status(500).json({ message: "Internal server error" });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: err.message });
   } finally {
     if (connection) connection.release();
   }
 });
+
+// RETURN EQUIPMENT ACTION
+app.post(
+  "/scanned-equipment-actions/return/:equipment_id",
+  async (req, res) => {
+    const { equipment_id } = req.params;
+    const { lab_id, user_id, date } = req.body;
+
+    if (!lab_id || !user_id || !date) {
+      return res
+        .status(400)
+        .json({ message: "All required fields must be provided." });
+    }
+
+    let connection;
+    try {
+      connection = await db.getConnection();
+
+      const [lastTransaction] = await connection.execute(
+        `SELECT * FROM scanned_equipments_actions 
+       WHERE equipment_id = ? 
+       ORDER BY date DESC LIMIT 1`,
+        [equipment_id]
+      );
+
+      if (lastTransaction.length === 0) {
+        return res
+          .status(404)
+          .json({ message: "No previous transaction found." });
+      }
+
+      const lastAction = lastTransaction[0];
+
+      await connection.execute(
+        `INSERT INTO scanned_equipments_actions 
+         (equipment_id, lab_id, user_id, client_id, tracking_code, reason, date, status, transaction_type) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [
+          equipment_id,
+          lab_id,
+          user_id,
+          lastAction.client_id,
+          lastAction.tracking_code,
+          lastAction.reason,
+          date,
+          "Returned",
+          "Return Equipment",
+        ]
+      );
+
+      await connection.execute(
+        "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
+        ["Available", equipment_id]
+      );
+
+      res.status(201).json({
+        message: "Equipment successfully returned!",
+        tracking_code: lastAction.tracking_code,
+        reason: lastAction.reason,
+        status: "Returned",
+      });
+    } catch (err) {
+      console.error("❌ Error returning equipment:", err);
+      res.status(500).json({ message: "Internal server error" });
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+);
 
 // UPDATE EQUIPMENT STATUS
 app.put("/equipments/:id/status", async (req, res) => {
@@ -1123,7 +1148,7 @@ app.put("/equipments/:id/status", async (req, res) => {
 
   let connection;
   try {
-    connection = await db.getConnection(); 
+    connection = await db.getConnection();
 
     const [existingEquipment] = await connection.execute(
       "SELECT * FROM equipments WHERE equipment_id = ?",
@@ -1138,7 +1163,9 @@ app.put("/equipments/:id/status", async (req, res) => {
       [status, id]
     );
 
-    res.status(200).json({ message: `Equipment status updated to '${status}'.` });
+    res
+      .status(200)
+      .json({ message: `Equipment status updated to '${status}'.` });
   } catch (err) {
     console.error("❌ Error updating equipment status:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -1157,7 +1184,7 @@ app.get("/scanned-equipment-actions/last/:equipment_id", async (req, res) => {
 
     const [lastTransaction] = await connection.execute(
       `SELECT sea.*, c.first_name, c.middle_name, c.last_name, 
-              c.contact_number, c.email, c.address
+              c.contact_number, c.email, c.address, c.client_type
        FROM scanned_equipments_actions sea
        LEFT JOIN clients c ON sea.client_id = c.client_id
        WHERE sea.equipment_id = ?
@@ -1167,7 +1194,9 @@ app.get("/scanned-equipment-actions/last/:equipment_id", async (req, res) => {
     );
 
     if (lastTransaction.length === 0) {
-      return res.status(404).json({ message: "No previous transaction found." });
+      return res
+        .status(404)
+        .json({ message: "No previous transaction found." });
     }
 
     res.status(200).json(lastTransaction[0]);
