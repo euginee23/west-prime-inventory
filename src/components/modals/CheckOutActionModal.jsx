@@ -36,31 +36,31 @@ const CheckOutActionModal = ({
 
   const [clientType, setClientType] = useState("Student");
 
-  const handleSearchChange = async (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-
-    if (query.length < 2) {
-      setFilteredClients([]);
-      setShowDropdown(false);
+  const handleSearchClick = async () => {
+    if (searchQuery.length < 2) {
+      toast.warn("Enter at least 2 characters to search.");
       return;
     }
-
+  
     try {
+      setLoading(true);
       const response = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/clients/search`,
         {
-          params: { query },
+          params: { query: searchQuery },
         }
       );
-
+  
       setFilteredClients(response.data.clients || []);
       setShowDropdown(response.data.clients.length > 0);
     } catch (error) {
       console.error("Error fetching clients:", error);
+      toast.error("Failed to fetch clients.");
       setFilteredClients([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  };  
 
   const handleSelectClient = (client) => {
     setClientData({ ...client, client_id: client.client_id });
@@ -294,17 +294,20 @@ const CheckOutActionModal = ({
                   <Form.Group className="mb-2 position-relative">
                     <Form.Label className="fw-bold small d-block"> </Form.Label>
                     <div className="input-group input-group-sm">
-                      <span className="input-group-text bg-white">🔍</span>
                       <Form.Control
                         type="text"
-                        placeholder="Type to search..."
+                        placeholder="Enter name, email, or contact number"
                         className="form-control form-control-sm"
                         value={searchQuery}
-                        onChange={handleSearchChange}
-                        onFocus={() =>
-                          setShowDropdown(filteredClients.length > 0)
-                        }
+                        onChange={(e) => setSearchQuery(e.target.value)}
                       />
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={handleSearchClick} 
+                      >
+                        Search
+                      </Button>
                     </div>
 
                     {/* Dropdown for Search Results */}

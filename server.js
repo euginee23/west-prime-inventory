@@ -1068,7 +1068,7 @@ app.post("/scanned-equipment-actions", async (req, res) => {
   }
 });
 
-// RETURN EQUIPMENT ACTION
+// SCANNED EQUIPMENT ACTION - RETURN
 app.post(
   "/scanned-equipment-actions/return/:equipment_id",
   async (req, res) => {
@@ -1085,20 +1085,28 @@ app.post(
     try {
       connection = await db.getConnection();
 
-      const [lastTransaction] = await connection.execute(
+      const [lastCheckOut] = await connection.execute(
         `SELECT * FROM scanned_equipments_actions 
-       WHERE equipment_id = ? 
-       ORDER BY date DESC LIMIT 1`,
+         WHERE equipment_id = ? 
+         AND transaction_type = 'Check Out' 
+         AND NOT EXISTS (
+           SELECT 1 FROM scanned_equipments_actions sea2
+           WHERE sea2.equipment_id = scanned_equipments_actions.equipment_id 
+           AND sea2.transaction_type = 'Return Equipment' 
+           AND sea2.tracking_code = scanned_equipments_actions.tracking_code
+         )
+         ORDER BY action_id DESC 
+         LIMIT 1`,
         [equipment_id]
       );
 
-      if (lastTransaction.length === 0) {
+      if (lastCheckOut.length === 0) {
         return res
           .status(404)
-          .json({ message: "No previous transaction found." });
+          .json({ message: "No valid Check Out transaction found." });
       }
 
-      const lastAction = lastTransaction[0];
+      const lastAction = lastCheckOut[0];
 
       await connection.execute(
         `INSERT INTO scanned_equipments_actions 
@@ -1108,9 +1116,9 @@ app.post(
           equipment_id,
           lab_id,
           user_id,
-          lastAction.client_id,
-          lastAction.tracking_code,
-          lastAction.reason,
+          lastAction.client_id, 
+          lastAction.tracking_code, 
+          lastAction.reason, 
           date,
           "Returned",
           "Return Equipment",
@@ -1188,15 +1196,20 @@ app.get("/scanned-equipment-actions/last/:equipment_id", async (req, res) => {
        FROM scanned_equipments_actions sea
        LEFT JOIN clients c ON sea.client_id = c.client_id
        WHERE sea.equipment_id = ?
-       ORDER BY sea.date DESC
+       AND sea.transaction_type = 'Check Out'
+       AND NOT EXISTS (
+           SELECT 1 FROM scanned_equipments_actions sea2
+           WHERE sea2.equipment_id = sea.equipment_id 
+           AND sea2.transaction_type = 'Return Equipment' 
+           AND sea2.tracking_code = sea.tracking_code
+       )
+       ORDER BY sea.action_id DESC
        LIMIT 1`,
       [equipment_id]
     );
 
     if (lastTransaction.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No previous transaction found." });
+      return res.status(404).json({ message: "No valid Check Out transaction found." });
     }
 
     res.status(200).json(lastTransaction[0]);

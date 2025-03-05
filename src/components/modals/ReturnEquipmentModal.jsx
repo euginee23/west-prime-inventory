@@ -26,14 +26,21 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
         }`
       );
 
-      if (response.data && response.data.client_id) {
+      if (
+        response.data &&
+        response.data.transaction_type === "Check Out" &&
+        response.data.status === "Checked Out"
+      ) {
         setClientData(response.data);
+        setTrackingCode(response.data.tracking_code);
       } else {
         setClientData(null);
+        setTrackingCode(`RET-${Date.now()}`);
       }
     } catch (error) {
       console.error("Error fetching last transaction:", error);
       setClientData(null);
+      setTrackingCode(`RET-${Date.now()}`);
     }
   };
 
@@ -43,7 +50,7 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
       return;
     }
 
-    setLoading(true); // Start loading
+    setLoading(true);
 
     try {
       await axios.post(
