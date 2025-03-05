@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Card, Table, Form, Button, Modal } from "react-bootstrap";
+import { Card, Table, Form, Button } from "react-bootstrap";
 import axios from "axios";
 import { toast } from "react-toastify";
 import ReactLoading from "react-loading";
@@ -32,7 +32,6 @@ const Track = () => {
     }
   };
 
-  // Handle search by tracking code
   const handleSearch = () => {
     if (!searchQuery.trim()) {
       setFilteredResults(scannedActions);
@@ -45,51 +44,53 @@ const Track = () => {
   };
 
   return (
-    <div className="container mt-3">
-      <Card className="shadow-sm p-3">
-
-        {/* Search Bar */}
-        <div className="d-flex mb-2">
+    <div className="container mt-2 px-1" style={{ maxWidth: "1100px", margin: "auto" }}>
+      <Card className="shadow-sm p-2">
+        
+        {/* Search Bar - More Compact */}
+        <div className="d-flex flex-column flex-md-row gap-1 mb-2">
           <Form.Control
             type="text"
             placeholder="Enter Tracking Code"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="me-2"
+            className="flex-grow-1"
+            size="sm"
           />
           <Button variant="primary" onClick={handleSearch} size="sm">
             Search
           </Button>
         </div>
 
-        {/* Table */}
+        {/* Table - More Compact */}
         {loading ? (
-          <div className="d-flex justify-content-center py-3">
-            <ReactLoading type="spin" color="#007bff" height={40} width={40} />
+          <div className="d-flex justify-content-center py-2">
+            <ReactLoading type="spin" color="#007bff" height={25} width={25} />
           </div>
         ) : (
-          <Table striped bordered hover responsive size="sm">
-            <thead className="table-dark text-center">
+          <Table striped bordered hover responsive size="sm" className="text-center small mb-0">
+            <thead className="table-dark">
               <tr>
-                <th>#</th>
-                <th>Tracking Code</th>
-                <th>Action</th>
-                <th>Status</th>
-                <th>View</th>
+                <th className="p-1">#</th>
+                <th className="p-1 text-nowrap">Tracking Code</th>
+                <th className="p-1">Action</th>
+                <th className="p-1">Status</th>
+                <th className="p-1">View</th>
               </tr>
             </thead>
             <tbody>
               {filteredResults.length > 0 ? (
                 filteredResults.map((action, index) => (
-                  <tr key={action.action_id} className="text-center">
-                    <td>{index + 1}</td>
-                    <td>{action.tracking_code}</td>
-                    <td>{action.transaction_type}</td>
-                    <td>{action.status}</td>
-                    <td>
+                  <tr key={action.action_id}>
+                    <td className="p-1">{index + 1}</td>
+                    <td className="p-1 text-nowrap">{action.tracking_code}</td>
+                    <td className="p-1">{action.transaction_type}</td>
+                    <td className="p-1">{action.status}</td>
+                    <td className="p-1">
                       <Button
                         variant="info"
                         size="sm"
+                        className="px-2 py-0"
                         onClick={() => setSelectedAction(action)}
                       >
                         View
@@ -99,7 +100,7 @@ const Track = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="text-center text-muted">
+                  <td colSpan="5" className="text-center text-muted p-2">
                     No records found.
                   </td>
                 </tr>
@@ -112,10 +113,10 @@ const Track = () => {
       {/* View Equipment Modal */}
       {selectedAction && (
         <ViewTrackedEquipmentModal
-        show={!!selectedAction}
-        onClose={() => setSelectedAction(null)}
-        trackingCode={selectedAction?.tracking_code}
-      />      
+          show={!!selectedAction}
+          onClose={() => setSelectedAction(null)}
+          trackingCode={selectedAction?.tracking_code}
+        />
       )}
     </div>
   );
