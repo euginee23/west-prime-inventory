@@ -1221,6 +1221,156 @@ app.get("/scanned-equipment-actions/last/:equipment_id", async (req, res) => {
   }
 });
 
+// GET SCANNED TRANSACTIONS
+app.get("/scanned-equipment-actions", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [actions] = await connection.execute(
+      `SELECT sea.*,
+              e.name AS equipment_name, e.type, e.brand, e.operational_status, e.availability_status,
+              c.first_name AS client_first_name, c.last_name AS client_last_name,
+              l.lab_name, l.lab_number
+       FROM scanned_equipments_actions sea
+       LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
+       LEFT JOIN clients c ON sea.client_id = c.client_id
+       LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
+       WHERE sea.action_id = (SELECT MAX(action_id) 
+                              FROM scanned_equipments_actions 
+                              WHERE tracking_code = sea.tracking_code)
+       GROUP BY sea.tracking_code
+       ORDER BY sea.date DESC`
+    );
+
+    if (actions.length === 0) {
+      return res.status(404).json({ message: "No tracking data found." });
+    }
+
+    res.status(200).json(actions);
+  } catch (err) {
+    console.error("❌ Error fetching latest transactions:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET TRACKED EQUIPMENT BY TRACKING ID
+app.get("/scanned-equipment-actions/:tracking_code", async (req, res) => {
+  const { tracking_code } = req.params;
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [actions] = await connection.execute(
+      `SELECT sea.*, 
+              e.name AS equipment_name, e.number, e.type, e.brand, 
+              e.operational_status, e.availability_status, e.description, 
+              l.lab_name, l.lab_number, 
+              c.first_name AS client_first_name, c.middle_name AS client_middle_name, 
+              c.last_name AS client_last_name, c.contact_number AS client_contact, 
+              c.email AS client_email, c.address AS client_address, c.client_type,
+              u.first_name AS user_first_name, u.middle_name AS user_middle_name, 
+              u.last_name AS user_last_name, u.phone AS user_phone, 
+              u.email AS user_email, u.user_type,
+              sea.tracking_code, sea.date, sea.reason, sea.transaction_type, sea.status
+       FROM scanned_equipments_actions sea
+       LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
+       LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
+       LEFT JOIN clients c ON sea.client_id = c.client_id
+       LEFT JOIN users u ON sea.user_id = u.user_id
+       WHERE sea.tracking_code = ?
+       LIMIT 1`, 
+      [tracking_code]
+    );    
+
+    if (actions.length === 0) {
+      return res.status(404).json({ message: "No tracking data found." });
+    }
+
+    res.status(200).json(actions[0]);
+  } catch (err) {
+    console.error("❌ Error fetching tracked equipment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// TRACKING TIMELINE
+app.get("/scanned-equipment-actions/history/:tracking_code", async (req, res) => {
+  const { tracking_code } = req.params;
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [history] = await connection.execute(
+      `SELECT sea.tracking_code, sea.date, sea.reason, sea.transaction_type, 
+              sea.lab_id, sea.user_id, 
+              u.first_name AS user_first_name, u.last_name AS user_last_name, u.user_type, 
+              c.first_name AS client_first_name, c.last_name AS client_last_name, 
+              l.lab_name, l.lab_number,
+              e.name AS equipment_name
+       FROM scanned_equipments_actions sea
+       LEFT JOIN users u ON sea.user_id = u.user_id
+       LEFT JOIN clients c ON sea.client_id = c.client_id
+       LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
+       LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
+       WHERE sea.tracking_code = ?
+       ORDER BY sea.date ASC`, 
+      [tracking_code]
+    );
+
+    if (history.length === 0) {
+      return res.status(404).json({ message: "No tracking history found." });
+    }
+
+    let structuredHistory = [];
+
+    history.forEach((entry) => {
+      if (entry.transaction_type === "Check Out") {
+        structuredHistory.push({
+          date: entry.date,
+          event: "Check Out Process",
+          details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
+        });
+        structuredHistory.push({
+          date: entry.date,
+          event: "Equipment Checked Out",
+          details: `Client: ${entry.client_first_name} ${entry.client_last_name} checked out ${entry.equipment_name} from ${entry.lab_name} (Lab ${entry.lab_number})`,
+        });
+      } else if (entry.transaction_type === "Return Equipment") {
+        structuredHistory.push({
+          date: entry.date,
+          event: "Equipment Returned",
+          details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
+        });
+        structuredHistory.push({
+          date: entry.date,
+          event: "Returned at Laboratory",
+          details: `${entry.lab_name} - ${entry.lab_number}`,
+        });
+      } else {
+        structuredHistory.push({
+          date: entry.date,
+          event: entry.transaction_type,
+          details: entry.reason,
+        });
+      }
+    });
+
+    res.status(200).json(structuredHistory);
+  } catch (err) {
+    console.error("❌ Error fetching tracking history:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 // TOKEN VERIFICATION MIDDLEWARE
 function authenticateToken(req, res, next) {
   const token = req.headers["authorization"]?.split(" ")[1];

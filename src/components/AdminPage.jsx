@@ -9,6 +9,7 @@ import Equipments from "./admin_components/Equipments";
 import ScanEquipment from "./admin_components/ScanEquipment";
 import Dashboard from "./admin_components/Dashboard";
 import ReLoginModal from "../components/modals/ReloginModal";
+import Track from "./common_components/Track";
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -152,7 +153,7 @@ export default function AdminPage() {
         {activeSection === "laboratories" && <Laboratories />}
         {activeSection === "personnels" && <Personnels />}
         {activeSection === "scan" && <ScanEquipment />}
-        {activeSection === "track" && <div>Track Equipments</div>}
+        {activeSection === "track" && <Track />}
         {activeSection === "reports" && <div>Reports Section</div>}
         {activeSection === "profile-settings" && <ProfileSettings />}
       </div>
