@@ -882,7 +882,9 @@ app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
           }
         }
       } catch (err) {
-        return res.status(500).json({ message: "Error processing image removal." });
+        return res
+          .status(500)
+          .json({ message: "Error processing image removal." });
       }
     }
 
@@ -942,6 +944,162 @@ app.get("/clients/search", async (req, res) => {
     res.status(200).json({ clients });
   } catch (error) {
     console.error("❌ Error searching clients:", error);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET PERSONNEL DESIGNATION
+app.get("/personnel_designations/:user_id", async (req, res) => {
+  const { user_id } = req.params;
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(
+      `SELECT pd.*, l.lab_name, l.lab_number 
+       FROM personnel_designations pd
+       LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
+       WHERE pd.user_id = ? AND pd.status = 'Active'
+       ORDER BY pd.created_at DESC LIMIT 1`,
+      [user_id]
+    );
+
+    if (results.length === 0) {
+      return res
+        .status(200)
+        .json({ message: "No active designation found.", data: null });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Personnel designation found.", data: results[0] });
+  } catch (err) {
+    console.error("❌ Error fetching personnel designation:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// ASSIGN PERSONNEL TO A LABORATORY
+app.post("/personnel_designations", async (req, res) => {
+  const { user_id, lab_id } = req.body;
+
+  if (!user_id || !lab_id) {
+    return res
+      .status(400)
+      .json({ message: "User ID and Lab ID are required." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    await connection.execute(
+      "UPDATE personnel_designations SET status = 'Inactive' WHERE user_id = ?",
+      [user_id]
+    );
+
+    await connection.execute(
+      `INSERT INTO personnel_designations (user_id, lab_id, status, created_at) 
+       VALUES (?, ?, 'Active', NOW())`,
+      [user_id, lab_id]
+    );
+
+    res.status(201).json({ message: "Laboratory assigned successfully." });
+  } catch (err) {
+    console.error("❌ Error assigning laboratory:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// RE-ASSIGN PERSONNEL TO A DIFFERENT LABORATORY WITHOUT UPDATING THE ACTIVE ONE
+app.post("/personnel_designations/reassign", async (req, res) => {
+  const { user_id, new_lab_id } = req.body;
+
+  if (!user_id || !new_lab_id) {
+    return res
+      .status(400)
+      .json({ message: "User ID and new Lab ID are required." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [currentAssignment] = await connection.execute(
+      `SELECT designation_id, lab_id FROM personnel_designations 
+       WHERE user_id = ? AND status = 'Active' 
+       ORDER BY created_at DESC LIMIT 1`,
+      [user_id]
+    );
+
+    if (currentAssignment.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "Personnel has no active laboratory assignment." });
+    }
+
+    const currentLabId = currentAssignment[0].lab_id;
+    const currentDesignationId = currentAssignment[0].designation_id;
+
+    if (currentLabId === parseInt(new_lab_id)) {
+      return res
+        .status(400)
+        .json({
+          message:
+            "Personnel is already assigned to this laboratory. Please select a different one.",
+        });
+    }
+
+    await connection.execute(
+      `INSERT INTO personnel_designations (user_id, lab_id, status, created_at) 
+       VALUES (?, ?, 'Inactive', NOW())`,
+      [user_id, currentLabId]
+    );
+
+    await connection.execute(
+      `INSERT INTO personnel_designations (user_id, lab_id, status, created_at) 
+       VALUES (?, ?, 'Active', NOW())`,
+      [user_id, new_lab_id]
+    );
+
+    res.status(201).json({ message: "Laboratory reassigned successfully." });
+  } catch (err) {
+    console.error("❌ Error reassigning laboratory:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET PERSONNEL ASSIGNMENT HISTORY
+app.get("/personnel_designations/history/:user_id", async (req, res) => {
+  const { user_id } = req.params;
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(
+      `SELECT pd.*, 
+              CONCAT(l.lab_name, ' (#', l.lab_number, ')') AS lab_details,
+              DATE_FORMAT(pd.created_at, '%Y-%m-%d') AS assign_date  -- ✅ Properly format date
+       FROM personnel_designations pd
+       LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
+       WHERE pd.user_id = ? 
+       ORDER BY pd.created_at DESC`, 
+      [user_id]
+    );
+
+    res.status(200).json({ data: results });
+  } catch (err) {
+    console.error("Error fetching assignment history:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();

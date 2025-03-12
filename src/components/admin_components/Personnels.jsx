@@ -15,6 +15,8 @@ import {
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "react-loading";
+import DeleteConfirmationModal from "../modals/DeleteConfirmationModal";
+import ViewPersonnelModal from "../modals/ViewPersonnelModal";
 
 export default function Personnels() {
   const [personnels, setPersonnels] = useState([]);
@@ -29,13 +31,15 @@ export default function Personnels() {
   });
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editingId, setEditingId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
   const [confirmText, setConfirmText] = useState("");
   const [deleteId, setDeleteId] = useState(null);
+
+  const [selectedPersonnel, setSelectedPersonnel] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
 
   useEffect(() => {
     fetchPersonnels();
@@ -99,12 +103,6 @@ export default function Personnels() {
     }
   };
 
-  const handleEditPersonnel = (personnel) => {
-    setFormData({ ...personnel, password: "" });
-    setIsEditing(true);
-    setEditingId(personnel.user_id);
-  };
-
   const handleUpdatePersonnel = async () => {
     setIsLoading(true);
     try {
@@ -160,6 +158,11 @@ export default function Personnels() {
     setFormData({ ...formData, password: generated });
   };
 
+  const handleViewPersonnel = (personnel) => {
+    setSelectedPersonnel(personnel);
+    setShowViewModal(true);
+  };
+
   return (
     <div
       className="container mt-3"
@@ -167,60 +170,19 @@ export default function Personnels() {
     >
       <ToastContainer />
 
-      {/* Delete Confirmation Modal */}
-      {deleteId && (
-        <div
-          className="modal fade show d-block"
-          tabIndex="-1"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h6 className="modal-title fw-bold text-danger">
-                  Confirm Personnel Removal
-                </h6>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setDeleteId(null)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <p className="text-muted small">
-                  Are you sure you want to remove this personnel? This action
-                  cannot be undone. <br />
-                  <strong>
-                    Type: <code>confirm-remove</code> to proceed.
-                  </strong>
-                </p>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Type: confirm-remove"
-                  value={confirmText}
-                  onChange={(e) => setConfirmText(e.target.value)}
-                />
-              </div>
-              <div className="modal-footer">
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setDeleteId(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={handleConfirmRemove}
-                  disabled={confirmText !== "confirm-remove"}
-                >
-                  <FaTrash /> Remove
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmationModal
+        deleteId={deleteId}
+        confirmText={confirmText}
+        setConfirmText={setConfirmText}
+        onCancel={() => setDeleteId(null)}
+        onConfirm={handleConfirmRemove}
+      />
+
+      <ViewPersonnelModal
+        show={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        personnel={selectedPersonnel}
+      />
 
       <div className="row g-2">
         {/* Left: Add/Edit Personnel Form */}
@@ -361,16 +323,16 @@ export default function Personnels() {
                     </div>
                     <div className="d-flex gap-1">
                       <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => handleEditPersonnel(person)}
+                        className="btn btn-info btn-sm"
+                        onClick={() => handleViewPersonnel(person)}
                       >
-                        <FaEdit /> Edit
+                        <FaEye />
                       </button>
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => handleRemovePersonnel(person.user_id)}
                       >
-                        <FaTrash /> Remove
+                        <FaTrash />
                       </button>
                     </div>
                   </li>
