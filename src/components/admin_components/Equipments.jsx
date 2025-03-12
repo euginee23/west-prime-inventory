@@ -233,29 +233,55 @@ export default function Equipments() {
     setFormData((prev) => ({ ...prev, images: [...prev.images, ...files] }));
   };
 
-  const handleEditEquipment = (equipment) => {
-    setFormData({ ...equipment });
-    setIsEditing(true);
-    setEditingId(equipment.equipment_id);
-  };
-
-  const handleUpdateEquipment = async () => {
-    setIsLoading(true);
-    try {
-      await axios.put(
-        `${import.meta.env.VITE_API_BASE_URL}/equipments/${editingId}`,
-        formData
-      );
-      toast.success("✅ Equipment updated successfully!");
-      fetchEquipments();
-      handleCancel();
-    } catch (err) {
-      console.error("❌ Error updating equipment:", err);
-      toast.error("❌ Failed to update equipment.");
-    } finally {
-      setIsLoading(false);
+  const onUpdateEquipment = async (updatedEquipment) => {
+    if (!updatedEquipment || !updatedEquipment.name) {
+      toast.error("Error: Equipment data is missing.");
+      return;
     }
-  };
+  
+    try {
+      const formData = new FormData();
+      formData.append("name", updatedEquipment.name);
+      formData.append("number", updatedEquipment.number);
+      formData.append("type", updatedEquipment.type);
+      formData.append("brand", updatedEquipment.brand);
+      formData.append(
+        "availability_status",
+        updatedEquipment.availability_status
+      );
+      formData.append(
+        "operational_status",
+        updatedEquipment.operational_status
+      );
+      formData.append("laboratory_id", updatedEquipment.laboratory_id);
+      formData.append("description", updatedEquipment.description);
+  
+      formData.append(
+        "remove_images",
+        JSON.stringify(updatedEquipment.remove_images || [])
+      );
+  
+      if (updatedEquipment.newImages && updatedEquipment.newImages.length > 0) {
+        updatedEquipment.newImages.forEach((file) => {
+          formData.append("images", file);
+        });
+      }
+  
+      await axios.put(
+        `${import.meta.env.VITE_API_BASE_URL}/equipments/${
+          updatedEquipment.equipment_id
+        }`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+  
+      toast.success("Equipment updated successfully!");
+      fetchEquipments();
+      setShowViewModal(false);
+    } catch (error) {
+      toast.error("Failed to update equipment.");
+    }
+  };  
 
   const handleRemoveEquipment = (id) => {
     confirmAlert({
@@ -306,9 +332,11 @@ export default function Equipments() {
 
   return (
     <div className="container-fluid px-2">
-
       <ToastContainer />
-      <ReLoginModal show={showReLoginModal} onReLogin={() => window.location.reload()} />
+      <ReLoginModal
+        show={showReLoginModal}
+        onReLogin={() => window.location.reload()}
+      />
 
       {/* Search & Filter Container */}
       <div className="card p-2 shadow-sm mb-2">
@@ -711,7 +739,7 @@ export default function Equipments() {
           fetchEquipments();
         }}
         equipment={selectedEquipment}
-        onUpdate={fetchEquipments}
+        onSave={onUpdateEquipment}
       />
     </div>
   );

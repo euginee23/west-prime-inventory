@@ -19,7 +19,7 @@ export default function PersonnelPage() {
 
   const currentSection =
     menuItems.find((item) => item.id === activeSection)?.label ||
-    "Administrator Panel";
+    "Personnel Panel";
 
   return (
     <div

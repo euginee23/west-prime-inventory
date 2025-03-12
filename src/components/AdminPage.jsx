@@ -18,7 +18,6 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!user) {
-      setShowReLoginModal(true);
     }
   }, [user]);
 

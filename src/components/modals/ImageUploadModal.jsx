@@ -8,13 +8,13 @@ export default function ImageUploadModal({ onClose, onOpenCamera, onUploadImage 
       tabIndex="-1"
       role="dialog"
       style={{
-        zIndex: 1070, // Higher than Bootstrap modal (default 1050)
+        zIndex: 1070, 
         position: "fixed",
         top: 0,
         left: 0,
         width: "100%",
         height: "100%",
-        background: "rgba(0, 0, 0, 0.6)", // Dark overlay
+        background: "rgba(0, 0, 0, 0.6)", 
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -23,7 +23,7 @@ export default function ImageUploadModal({ onClose, onOpenCamera, onUploadImage 
       <div
         className="modal-dialog modal-dialog-centered"
         role="document"
-        style={{ zIndex: 1080 }} // Ensure the modal content is also above everything
+        style={{ zIndex: 1080 }} 
       >
         <div className="modal-content p-4 text-center">
           <h5 className="modal-title mb-3">Select an Option</h5>

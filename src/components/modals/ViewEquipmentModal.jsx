@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Modal, Button, Row, Col, Image, Card, Form } from "react-bootstrap";
 import { FaDownload, FaTimes, FaEdit, FaSave, FaPlus } from "react-icons/fa";
+import { toast } from "react-toastify";
 import ImageUploadModal from "./ImageUploadModal";
 import { openCamera } from "../../utils/camera";
 import ImageViewerModal from "./ImageViewerModal";
@@ -14,6 +15,8 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
   const [showHistory, setShowHistory] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [laboratories, setLaboratories] = useState([]);
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const [editedEquipment, setEditedEquipment] = useState({
     ...equipment,
@@ -50,26 +53,96 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
       return;
     }
 
-    const newImageFiles = files.map((file) => URL.createObjectURL(file));
-
     setEditedEquipment((prev) => ({
       ...prev,
-      images: [...prev.images, ...newImageFiles],
+      images: [
+        ...prev.images,
+        ...files.map((file) => URL.createObjectURL(file)),
+      ],
+      newImages: prev.newImages ? [...prev.newImages, ...files] : [...files],
     }));
 
     setShowImageUploadModal(false);
   };
 
   const handleRemoveImage = (index) => {
-    setEditedEquipment((prev) => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index),
-    }));
+    if (editedEquipment.images.length === 1) {
+      toast.warn(
+        "Cannot remove the last image. At least one image is required."
+      );
+      return;
+    }
+
+    setEditedEquipment((prev) => {
+      const removedImage = prev.images[index];
+      const updatedImages = prev.images.filter((_, i) => i !== index);
+
+      return {
+        ...prev,
+        images: updatedImages,
+        remove_images: prev.remove_images
+          ? [...prev.remove_images, removedImage]
+          : [removedImage],
+      };
+    });
   };
 
-  const handleSave = () => {
-    onSave(editedEquipment);
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (!editedEquipment || !editedEquipment.name) {
+      alert("Error: Equipment data is missing.");
+      return;
+    }
+
+    const originalInfo = {
+      name: equipment.name,
+      number: equipment.number,
+      type: equipment.type,
+      brand: equipment.brand,
+      availability_status: equipment.availability_status,
+      operational_status: equipment.operational_status,
+      laboratory_id: equipment.laboratory?.lab_number || "",
+      description: equipment.description,
+    };
+
+    const newInfo = {
+      name: editedEquipment.name,
+      number: editedEquipment.number,
+      type: editedEquipment.type,
+      brand: editedEquipment.brand,
+      availability_status: editedEquipment.availability_status,
+      operational_status: editedEquipment.operational_status,
+      laboratory_id: editedEquipment.laboratory_id,
+      description: editedEquipment.description,
+    };
+
+    const infoChanged =
+      JSON.stringify(originalInfo) !== JSON.stringify(newInfo);
+    const imagesChanged =
+      (editedEquipment.newImages && editedEquipment.newImages.length > 0) ||
+      (editedEquipment.remove_images &&
+        editedEquipment.remove_images.length > 0);
+
+    if (!infoChanged && !imagesChanged) {
+      alert("No changes were made.");
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await onSave({
+        ...editedEquipment,
+        remove_images: editedEquipment.remove_images || [],
+        newImages: editedEquipment.newImages || [],
+      });
+
+      setIsEditing(false);
+    } catch (error) {
+      alert("Failed to save equipment. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -124,23 +197,27 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
   const handleOpenCamera = async () => {
     try {
       const imageBlob = await openCamera();
+  
       if (editedEquipment.images.length >= 3) {
-        alert("You can only upload up to 3 images.");
+        toast.warn("You can only upload up to 3 images.");
         return;
       }
-
+  
+      const imageFile = new File([imageBlob], `camera_capture_${Date.now()}.jpg`, { type: "image/jpeg" });
       const imageURL = URL.createObjectURL(imageBlob);
-
+  
       setEditedEquipment((prev) => ({
         ...prev,
-        images: [...prev.images, imageURL],
+        images: [...prev.images, imageURL],  
+        newImages: prev.newImages ? [...prev.newImages, imageFile] : [imageFile],
       }));
-
+  
       setShowImageUploadModal(false);
     } catch (err) {
       console.error("Camera was closed or an error occurred:", err);
+      toast.error("Failed to capture image.");
     }
-  };
+  };  
 
   const equipmentTypes = [
     "Computer Accessory",
@@ -566,8 +643,22 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
         <Modal.Footer className="py-2 bg-light">
           {isEditing ? (
             <>
-              <Button size="sm" variant="success" onClick={handleSave}>
-                <FaSave className="me-1" /> Save Changes
+              <Button
+                size="sm"
+                variant="success"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <FaSave className="me-1" /> Save Changes
+                  </>
+                )}
               </Button>
               <Button
                 size="sm"

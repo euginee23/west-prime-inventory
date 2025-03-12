@@ -825,9 +825,6 @@ app.delete("/equipments/:id", async (req, res) => {
 
 // UPDATE EQUIPMENTS
 app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
-  console.log("📥 Received Update Request:", req.body);
-  console.log("📷 New Uploaded Images:", req.files);
-
   const { id } = req.params;
   const {
     name,
@@ -835,12 +832,11 @@ app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
     type,
     brand,
     availability_status = "Available",
+    operational_status,
     description,
-    user_id,
     laboratory_id,
     remove_images,
   } = req.body;
-  const newImages = req.files;
 
   if (
     !name ||
@@ -849,19 +845,8 @@ app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
     !brand ||
     !availability_status ||
     !description ||
-    !user_id ||
     !laboratory_id
   ) {
-    console.error("🚨 Missing required fields:", {
-      name,
-      number,
-      type,
-      brand,
-      availability_status,
-      description,
-      user_id,
-      laboratory_id,
-    });
     return res.status(400).json({ message: "All fields are required." });
   }
 
@@ -869,13 +854,11 @@ app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
   try {
     connection = await db.getConnection();
 
-    const parsedUserId = parseInt(user_id, 10);
-    const parsedLabId = parseInt(laboratory_id, 10);
-
     const [existingEquipment] = await connection.execute(
       "SELECT * FROM equipments WHERE equipment_id = ?",
       [id]
     );
+
     if (existingEquipment.length === 0) {
       return res.status(404).json({ message: "Equipment not found." });
     }
@@ -883,33 +866,29 @@ app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
     if (remove_images) {
       try {
         const imagesToRemove = JSON.parse(remove_images);
-        for (const imageId of imagesToRemove) {
-          await connection.execute(
-            "DELETE FROM equipment_images WHERE img_id = ? AND equipment_id = ?",
-            [imageId, id]
-          );
+        if (Array.isArray(imagesToRemove) && imagesToRemove.length > 0) {
+          for (const base64Image of imagesToRemove) {
+            if (!base64Image.startsWith("data:image")) {
+              continue;
+            }
+
+            const base64Data = base64Image.split(",")[1];
+            const imageBuffer = Buffer.from(base64Data, "base64");
+
+            await connection.execute(
+              "DELETE FROM equipment_images WHERE image = ? AND equipment_id = ?",
+              [imageBuffer, id]
+            );
+          }
         }
-        console.log(`✅ Removed ${imagesToRemove.length} images`);
       } catch (err) {
-        console.error("🚨 Error parsing `remove_images` JSON:", err);
+        return res.status(500).json({ message: "Error processing image removal." });
       }
-    }
-
-    const [existingImages] = await connection.execute(
-      "SELECT COUNT(*) AS imageCount FROM equipment_images WHERE equipment_id = ?",
-      [id]
-    );
-    const currentImageCount = existingImages[0].imageCount;
-
-    if (currentImageCount + newImages.length > 3) {
-      return res.status(400).json({
-        message: `You can only have up to 3 images. Current: ${currentImageCount}, New: ${newImages.length}`,
-      });
     }
 
     await connection.execute(
       `UPDATE equipments 
-       SET name = ?, number = ?, type = ?, brand = ?, availability_status = ?, description = ?, user_id = ?, laboratory_id = ? 
+       SET name = ?, number = ?, type = ?, brand = ?, availability_status = ?, operational_status = ?, description = ?, laboratory_id = ? 
        WHERE equipment_id = ?`,
       [
         name,
@@ -917,27 +896,24 @@ app.put("/equipments/:id", upload.array("images", 3), async (req, res) => {
         type,
         brand,
         availability_status,
+        operational_status,
         description,
-        parsedUserId,
-        parsedLabId,
+        laboratory_id,
         id,
       ]
     );
-    console.log(`✅ Equipment ID ${id} updated.`);
 
-    for (const image of newImages) {
-      await connection.execute(
-        `INSERT INTO equipment_images (equipment_id, image) VALUES (?, ?);`,
-        [id, Buffer.from(image.buffer)]
-      );
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        await connection.execute(
+          `INSERT INTO equipment_images (equipment_id, image) VALUES (?, ?)`,
+          [id, Buffer.from(file.buffer)]
+        );
+      }
     }
-    console.log(
-      `✅ ${newImages.length} new images added for equipment ID ${id}.`
-    );
 
     res.status(200).json({ message: "Equipment updated successfully." });
   } catch (err) {
-    console.error("❌ Error updating equipment:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -968,7 +944,7 @@ app.get("/clients/search", async (req, res) => {
     console.error("❌ Error searching clients:", error);
     res.status(500).json({ message: "Internal server error" });
   } finally {
-    if (connection) connection.release(); 
+    if (connection) connection.release();
   }
 });
 
@@ -1116,9 +1092,9 @@ app.post(
           equipment_id,
           lab_id,
           user_id,
-          lastAction.client_id, 
-          lastAction.tracking_code, 
-          lastAction.reason, 
+          lastAction.client_id,
+          lastAction.tracking_code,
+          lastAction.reason,
           date,
           "Returned",
           "Return Equipment",
@@ -1209,7 +1185,9 @@ app.get("/scanned-equipment-actions/last/:equipment_id", async (req, res) => {
     );
 
     if (lastTransaction.length === 0) {
-      return res.status(404).json({ message: "No valid Check Out transaction found." });
+      return res
+        .status(404)
+        .json({ message: "No valid Check Out transaction found." });
     }
 
     res.status(200).json(lastTransaction[0]);
@@ -1282,9 +1260,9 @@ app.get("/scanned-equipment-actions/:tracking_code", async (req, res) => {
        LEFT JOIN clients c ON sea.client_id = c.client_id
        LEFT JOIN users u ON sea.user_id = u.user_id
        WHERE sea.tracking_code = ?
-       LIMIT 1`, 
+       LIMIT 1`,
       [tracking_code]
-    );    
+    );
 
     if (actions.length === 0) {
       return res.status(404).json({ message: "No tracking data found." });
@@ -1300,15 +1278,17 @@ app.get("/scanned-equipment-actions/:tracking_code", async (req, res) => {
 });
 
 // TRACKING TIMELINE
-app.get("/scanned-equipment-actions/history/:tracking_code", async (req, res) => {
-  const { tracking_code } = req.params;
+app.get(
+  "/scanned-equipment-actions/history/:tracking_code",
+  async (req, res) => {
+    const { tracking_code } = req.params;
 
-  let connection;
-  try {
-    connection = await db.getConnection();
+    let connection;
+    try {
+      connection = await db.getConnection();
 
-    const [history] = await connection.execute(
-      `SELECT sea.tracking_code, sea.date, sea.reason, sea.transaction_type, 
+      const [history] = await connection.execute(
+        `SELECT sea.tracking_code, sea.date, sea.reason, sea.transaction_type, 
               sea.lab_id, sea.user_id, 
               u.first_name AS user_first_name, u.last_name AS user_last_name, u.user_type, 
               c.first_name AS client_first_name, c.last_name AS client_last_name, 
@@ -1320,56 +1300,57 @@ app.get("/scanned-equipment-actions/history/:tracking_code", async (req, res) =>
        LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
        LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
        WHERE sea.tracking_code = ?
-       ORDER BY sea.date ASC`, 
-      [tracking_code]
-    );
+       ORDER BY sea.date ASC`,
+        [tracking_code]
+      );
 
-    if (history.length === 0) {
-      return res.status(404).json({ message: "No tracking history found." });
-    }
-
-    let structuredHistory = [];
-
-    history.forEach((entry) => {
-      if (entry.transaction_type === "Check Out") {
-        structuredHistory.push({
-          date: entry.date,
-          event: "Check Out Process",
-          details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
-        });
-        structuredHistory.push({
-          date: entry.date,
-          event: "Equipment Checked Out",
-          details: `Client: ${entry.client_first_name} ${entry.client_last_name} checked out ${entry.equipment_name} from ${entry.lab_name} (Lab ${entry.lab_number})`,
-        });
-      } else if (entry.transaction_type === "Return Equipment") {
-        structuredHistory.push({
-          date: entry.date,
-          event: "Equipment Returned",
-          details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
-        });
-        structuredHistory.push({
-          date: entry.date,
-          event: "Returned at Laboratory",
-          details: `${entry.lab_name} - ${entry.lab_number}`,
-        });
-      } else {
-        structuredHistory.push({
-          date: entry.date,
-          event: entry.transaction_type,
-          details: entry.reason,
-        });
+      if (history.length === 0) {
+        return res.status(404).json({ message: "No tracking history found." });
       }
-    });
 
-    res.status(200).json(structuredHistory);
-  } catch (err) {
-    console.error("❌ Error fetching tracking history:", err);
-    res.status(500).json({ message: "Internal server error" });
-  } finally {
-    if (connection) connection.release();
+      let structuredHistory = [];
+
+      history.forEach((entry) => {
+        if (entry.transaction_type === "Check Out") {
+          structuredHistory.push({
+            date: entry.date,
+            event: "Check Out Process",
+            details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
+          });
+          structuredHistory.push({
+            date: entry.date,
+            event: "Equipment Checked Out",
+            details: `Client: ${entry.client_first_name} ${entry.client_last_name} checked out ${entry.equipment_name} from ${entry.lab_name} (Lab ${entry.lab_number})`,
+          });
+        } else if (entry.transaction_type === "Return Equipment") {
+          structuredHistory.push({
+            date: entry.date,
+            event: "Equipment Returned",
+            details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
+          });
+          structuredHistory.push({
+            date: entry.date,
+            event: "Returned at Laboratory",
+            details: `${entry.lab_name} - ${entry.lab_number}`,
+          });
+        } else {
+          structuredHistory.push({
+            date: entry.date,
+            event: entry.transaction_type,
+            details: entry.reason,
+          });
+        }
+      });
+
+      res.status(200).json(structuredHistory);
+    } catch (err) {
+      console.error("❌ Error fetching tracking history:", err);
+      res.status(500).json({ message: "Internal server error" });
+    } finally {
+      if (connection) connection.release();
+    }
   }
-});
+);
 
 // TOKEN VERIFICATION MIDDLEWARE
 function authenticateToken(req, res, next) {
