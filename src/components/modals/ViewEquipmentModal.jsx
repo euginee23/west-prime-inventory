@@ -89,10 +89,10 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
 
   const handleSave = async () => {
     if (!editedEquipment || !editedEquipment.name) {
-      alert("Error: Equipment data is missing.");
+      toast.error("Error: Equipment data is missing.");
       return;
     }
-
+  
     const originalInfo = {
       name: equipment.name,
       number: equipment.number,
@@ -103,7 +103,7 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
       laboratory_id: equipment.laboratory?.lab_number || "",
       description: equipment.description,
     };
-
+  
     const newInfo = {
       name: editedEquipment.name,
       number: editedEquipment.number,
@@ -114,36 +114,39 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
       laboratory_id: editedEquipment.laboratory_id,
       description: editedEquipment.description,
     };
-
+  
     const infoChanged =
       JSON.stringify(originalInfo) !== JSON.stringify(newInfo);
     const imagesChanged =
       (editedEquipment.newImages && editedEquipment.newImages.length > 0) ||
       (editedEquipment.remove_images &&
         editedEquipment.remove_images.length > 0);
-
+  
     if (!infoChanged && !imagesChanged) {
-      alert("No changes were made.");
+      toast.info("No changes were made.");
       setIsEditing(false);
       return;
     }
-
+  
     setIsSaving(true);
-
+  
     try {
-      await onSave({
-        ...editedEquipment,
-        remove_images: editedEquipment.remove_images || [],
-        newImages: editedEquipment.newImages || [],
-      });
-
+      await onSave(
+        {
+          ...editedEquipment,
+          remove_images: editedEquipment.remove_images || [],
+          newImages: editedEquipment.newImages || [],
+        },
+        true
+      );
+  
       setIsEditing(false);
     } catch (error) {
-      alert("Failed to save equipment. Please try again.");
+      toast.error("Failed to save equipment. Please try again.");
     } finally {
       setIsSaving(false);
     }
-  };
+  };  
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";

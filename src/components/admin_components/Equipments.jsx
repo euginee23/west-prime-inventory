@@ -233,12 +233,12 @@ export default function Equipments() {
     setFormData((prev) => ({ ...prev, images: [...prev.images, ...files] }));
   };
 
-  const onUpdateEquipment = async (updatedEquipment) => {
+  const onUpdateEquipment = async (updatedEquipment, isUpdated) => {
     if (!updatedEquipment || !updatedEquipment.name) {
       toast.error("Error: Equipment data is missing.");
       return;
     }
-  
+
     try {
       const formData = new FormData();
       formData.append("name", updatedEquipment.name);
@@ -255,18 +255,18 @@ export default function Equipments() {
       );
       formData.append("laboratory_id", updatedEquipment.laboratory_id);
       formData.append("description", updatedEquipment.description);
-  
+
       formData.append(
         "remove_images",
         JSON.stringify(updatedEquipment.remove_images || [])
       );
-  
+
       if (updatedEquipment.newImages && updatedEquipment.newImages.length > 0) {
         updatedEquipment.newImages.forEach((file) => {
           formData.append("images", file);
         });
       }
-  
+
       await axios.put(
         `${import.meta.env.VITE_API_BASE_URL}/equipments/${
           updatedEquipment.equipment_id
@@ -274,14 +274,18 @@ export default function Equipments() {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-  
+
       toast.success("Equipment updated successfully!");
-      fetchEquipments();
+
+      if (isUpdated) {
+        fetchEquipments();
+      }
+
       setShowViewModal(false);
     } catch (error) {
       toast.error("Failed to update equipment.");
     }
-  };  
+  };
 
   const handleRemoveEquipment = (id) => {
     confirmAlert({
@@ -734,13 +738,11 @@ export default function Equipments() {
 
       <ViewEquipmentModal
         show={showViewModal}
-        onClose={() => {
-          setShowViewModal(false);
-          fetchEquipments();
-        }}
+        onClose={() => setShowViewModal(false)}
         equipment={selectedEquipment}
         onSave={onUpdateEquipment}
       />
+      
     </div>
   );
 }
