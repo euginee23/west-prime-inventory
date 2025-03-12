@@ -363,19 +363,27 @@ app.post("/laboratories", async (req, res) => {
   }
 });
 
-// GET LIST OF PERSONNEL
+// GET ALL PERSONNELS WITH ASSIGNED LABORATORY
 app.get("/personnels", async (req, res) => {
   let connection;
+
   try {
     connection = await db.getConnection();
 
-    const [results] = await connection.execute(
-      "SELECT user_id, first_name, middle_name, last_name, phone, email, username, created_at FROM users WHERE user_type = 'Personnel' ORDER BY created_at DESC"
-    );
+    const [results] = await connection.execute(`
+      SELECT u.*, 
+             pd.lab_id, 
+             l.lab_name, 
+             l.lab_number 
+      FROM users u
+      LEFT JOIN personnel_designations pd ON u.user_id = pd.user_id AND pd.status = 'Active'
+      LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
+      WHERE u.user_type = 'Personnel'
+    `);
 
     res.status(200).json(results);
   } catch (err) {
-    console.error("❌ Error fetching personnels:", err);
+    console.error("Error fetching personnels:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -500,6 +508,7 @@ app.get("/equipments", async (req, res) => {
         u.first_name, 
         u.last_name, 
         u.user_type, 
+        l.lab_id,
         l.lab_name, 
         l.lab_number
       FROM equipments e
@@ -535,8 +544,9 @@ app.get("/equipments", async (req, res) => {
               }
             : null,
 
-          laboratory: row.lab_name
+          laboratory: row.lab_id 
             ? {
+                lab_id: row.lab_id, 
                 lab_name: row.lab_name,
                 lab_number: row.lab_number,
               }
@@ -950,7 +960,7 @@ app.get("/clients/search", async (req, res) => {
   }
 });
 
-// GET PERSONNEL DESIGNATION
+// GET PERSONNEL DESIGNATION (Latest Assignment)
 app.get("/personnel_designations/:user_id", async (req, res) => {
   const { user_id } = req.params;
   let connection;
@@ -962,12 +972,12 @@ app.get("/personnel_designations/:user_id", async (req, res) => {
       `SELECT pd.*, l.lab_name, l.lab_number 
        FROM personnel_designations pd
        LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
-       WHERE pd.user_id = ? AND pd.status = 'Active'
+       WHERE pd.user_id = ?
        ORDER BY pd.created_at DESC LIMIT 1`,
       [user_id]
     );
 
-    if (results.length === 0) {
+    if (results.length === 0 || results[0].status === "Inactive") {
       return res
         .status(200)
         .json({ message: "No active designation found.", data: null });
@@ -999,11 +1009,6 @@ app.post("/personnel_designations", async (req, res) => {
     connection = await db.getConnection();
 
     await connection.execute(
-      "UPDATE personnel_designations SET status = 'Inactive' WHERE user_id = ?",
-      [user_id]
-    );
-
-    await connection.execute(
       `INSERT INTO personnel_designations (user_id, lab_id, status, created_at) 
        VALUES (?, ?, 'Active', NOW())`,
       [user_id, lab_id]
@@ -1018,7 +1023,7 @@ app.post("/personnel_designations", async (req, res) => {
   }
 });
 
-// RE-ASSIGN PERSONNEL TO A DIFFERENT LABORATORY WITHOUT UPDATING THE ACTIVE ONE
+// RE-ASSIGN PERSONNEL
 app.post("/personnel_designations/reassign", async (req, res) => {
   const { user_id, new_lab_id } = req.body;
 
@@ -1049,12 +1054,10 @@ app.post("/personnel_designations/reassign", async (req, res) => {
     const currentDesignationId = currentAssignment[0].designation_id;
 
     if (currentLabId === parseInt(new_lab_id)) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Personnel is already assigned to this laboratory. Please select a different one.",
-        });
+      return res.status(400).json({
+        message:
+          "Personnel is already assigned to this laboratory. Please select a different one.",
+      });
     }
 
     await connection.execute(
@@ -1078,6 +1081,48 @@ app.post("/personnel_designations/reassign", async (req, res) => {
   }
 });
 
+// REMOVE PERSONNEL ASSIGNMENT
+app.post("/personnel_designations/remove", async (req, res) => {
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [activeAssignment] = await connection.execute(
+      `SELECT * FROM personnel_designations 
+       WHERE user_id = ? AND status = 'Active' 
+       ORDER BY created_at DESC LIMIT 1`,
+      [user_id]
+    );
+
+    if (activeAssignment.length === 0) {
+      return res.status(404).json({ message: "No active assignment found." });
+    }
+
+    const currentLabId = activeAssignment[0].lab_id;
+
+    await connection.execute(
+      `INSERT INTO personnel_designations (user_id, lab_id, status, created_at) 
+       VALUES (?, ?, 'Inactive', NOW())`,
+      [user_id, currentLabId]
+    );
+
+    res
+      .status(201)
+      .json({ message: "Personnel assignment removed successfully." });
+  } catch (err) {
+    console.error("❌ Error removing personnel assignment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 // GET PERSONNEL ASSIGNMENT HISTORY
 app.get("/personnel_designations/history/:user_id", async (req, res) => {
   const { user_id } = req.params;
@@ -1093,7 +1138,7 @@ app.get("/personnel_designations/history/:user_id", async (req, res) => {
        FROM personnel_designations pd
        LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
        WHERE pd.user_id = ? 
-       ORDER BY pd.created_at DESC`, 
+       ORDER BY pd.created_at DESC`,
       [user_id]
     );
 

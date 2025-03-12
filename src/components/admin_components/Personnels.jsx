@@ -3,7 +3,6 @@ import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {
   FaUserPlus,
-  FaEdit,
   FaSave,
   FaUsers,
   FaTimes,
@@ -30,7 +29,6 @@ export default function Personnels() {
     password: "",
   });
 
-  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -41,8 +39,13 @@ export default function Personnels() {
   const [selectedPersonnel, setSelectedPersonnel] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterLaboratory, setFilterLaboratory] = useState("");
+  const [laboratories, setLaboratories] = useState([]);
+
   useEffect(() => {
     fetchPersonnels();
+    fetchLaboratories();
   }, []);
 
   const fetchPersonnels = async () => {
@@ -53,7 +56,7 @@ export default function Personnels() {
       );
       setPersonnels(response.data || []);
     } catch (err) {
-      console.error("❌ Error fetching personnels:", err);
+      console.error("Error fetching personnels:", err);
       toast.error("Failed to load personnels.");
       setPersonnels([]);
     } finally {
@@ -61,8 +64,45 @@ export default function Personnels() {
     }
   };
 
+  const fetchLaboratories = async () => {
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/laboratories`
+      );
+      setLaboratories(response.data.data || []);
+    } catch (err) {
+      console.error("Error fetching laboratories:", err);
+    }
+  };
+
+  const filteredPersonnels = personnels
+    .filter(
+      (person) =>
+        searchQuery === "" ||
+        person.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        person.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        person.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        person.phone.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .filter((person) => {
+      if (!filterLaboratory) return true;
+
+      if (filterLaboratory === "unassigned") {
+        return !person.lab_id;
+      }
+
+      return (
+        person.lab_id && String(person.lab_id) === String(filterLaboratory)
+      );
+    });
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleAddPersonnel = async () => {
@@ -74,7 +114,7 @@ export default function Personnels() {
       !formData.username ||
       !formData.password
     ) {
-      toast.warn("⚠️ Please fill in all required fields.");
+      toast.warn("Please fill in all required fields.");
       return;
     }
 
@@ -84,7 +124,8 @@ export default function Personnels() {
         `${import.meta.env.VITE_API_BASE_URL}/personnels`,
         formData
       );
-      toast.success("✅ Personnel added successfully!");
+      toast.success("Personnel added successfully!");
+
       setFormData({
         first_name: "",
         middle_name: "",
@@ -94,28 +135,38 @@ export default function Personnels() {
         username: "",
         password: "",
       });
+
       fetchPersonnels();
     } catch (err) {
-      console.error("❌ Error adding personnel:", err);
-      toast.error("❌ Failed to add personnel.");
+      console.error("Error adding personnel:", err);
+      toast.error("Failed to add personnel.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleUpdatePersonnel = async () => {
+    if (!editingId) {
+      toast.error("No personnel selected for updating.");
+      return;
+    }
+
     setIsLoading(true);
     try {
+      const updatedData = { ...formData };
+      if (!formData.password) delete updatedData.password;
+
       await axios.put(
         `${import.meta.env.VITE_API_BASE_URL}/personnels/${editingId}`,
-        formData
+        updatedData
       );
-      toast.success("✅ Personnel updated successfully!");
+      toast.success("Personnel updated successfully!");
+
       fetchPersonnels();
       handleCancel();
     } catch (err) {
-      console.error("❌ Error updating personnel:", err);
-      toast.error("❌ Failed to update personnel.");
+      console.error("Error updating personnel:", err);
+      toast.error("Failed to update personnel.");
     } finally {
       setIsLoading(false);
     }
@@ -131,12 +182,12 @@ export default function Personnels() {
       await axios.delete(
         `${import.meta.env.VITE_API_BASE_URL}/personnels/${deleteId}`
       );
-      toast.success("✅ Personnel removed successfully!");
+      toast.success("Personnel removed successfully!");
       setDeleteId(null);
       fetchPersonnels();
     } catch (err) {
-      console.error("❌ Error removing personnel:", err);
-      toast.error("❌ Failed to remove personnel.");
+      console.error("Error removing personnel:", err);
+      toast.error("Failed to remove personnel.");
     }
   };
 
@@ -166,7 +217,7 @@ export default function Personnels() {
   return (
     <div
       className="container mt-3"
-      style={{ maxWidth: "900px", margin: "auto" }}
+      style={{ maxWidth: "1100px", margin: "auto" }}
     >
       <ToastContainer />
 
@@ -182,25 +233,80 @@ export default function Personnels() {
         show={showViewModal}
         onClose={() => setShowViewModal(false)}
         personnel={selectedPersonnel}
+        onSave={() => {
+          fetchPersonnels();
+          setShowViewModal(false);
+        }}
       />
 
+      {/* Search & Filter Options */}
+      <div className="card p-2 shadow-sm mb-2">
+        <div className="row g-2">
+          {/* Search Field */}
+          <div className="col-12 col-md-6">
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="🔍 Search by Name, Email, Phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Assigned Laboratory Filter */}
+          <div className="col-12 col-md-4">
+            <select
+              className="form-select form-select-sm"
+              value={filterLaboratory}
+              onChange={(e) =>
+                setFilterLaboratory(
+                  e.target.value ? String(e.target.value) : ""
+                )
+              }
+            >
+              <option value="">All Personnels</option>
+              <option value="unassigned">Unassigned Personnels</option>{" "}
+              {laboratories.map((lab) => (
+                <option key={lab.lab_id} value={lab.lab_id}>
+                  {lab.lab_name} (#{lab.lab_number})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Reset Filters Button */}
+          <div className="col-12 col-md-2">
+            <button
+              className="btn btn-sm btn-primary w-100"
+              onClick={() => {
+                setSearchQuery("");
+                setFilterLaboratory("");
+              }}
+            >
+              Reset Filters
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="row g-2">
-        {/* Left: Add/Edit Personnel Form */}
+        {/*Add Personnel Form */}
         <div className="col-12 col-md-5">
-          <div className="card p-3 shadow-sm">
-            <h6 className="text-primary mb-2">
-              {isEditing ? "Edit Personnel" : "Add Personnel"}
-            </h6>
+          <div className="card p-3 shadow-sm border rounded">
+            <h6 className="text-primary mb-3 fw-bold">Add Personnel</h6>
+            {/* Form Fields */}
             <div className="row g-2">
               {["first_name", "middle_name", "last_name", "phone", "email"].map(
                 (field, index) => (
-                  <div key={index} className="col-12 col-sm-6">
+                  <div key={index} className="col-12">
+                    <label className="fw-bold small mb-1">
+                      {field
+                        .replace("_", " ")
+                        .replace(/\b\w/g, (char) => char.toUpperCase())}
+                    </label>
                     <input
                       type="text"
                       className="form-control form-control-sm"
-                      placeholder={field
-                        .replace("_", " ")
-                        .replace(/\b\w/g, (char) => char.toUpperCase())}
                       name={field}
                       value={formData[field]}
                       onChange={handleChange}
@@ -213,73 +319,59 @@ export default function Personnels() {
             {/* Separation Line */}
             <hr />
 
-            {/* Username & Password Fields */}
-            <div className="row g-2">
-              <div className="col-12">
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                />
-              </div>
-              {!isEditing && (
-                <div className="col-12">
-                  <div className="input-group input-group-sm">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      className="form-control"
-                      placeholder="Password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                    />
-                    <button
-                      className="btn btn-outline-secondary"
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <FaEyeSlash /> : <FaEye />}
-                    </button>
-                    <button
-                      className="btn btn-warning"
-                      type="button"
-                      onClick={generatePassword}
-                    >
-                      <FaKey />
-                    </button>
-                  </div>
-                </div>
-              )}
+            {/* Username Field */}
+            <div className="col-12">
+              <label className="fw-bold small mb-1">Username</label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+              />
             </div>
 
-            <div className="d-flex justify-content-end mt-2">
-              {isEditing && (
+            {/* Password Field */}
+            <div className="col-12 mt-2">
+              <label className="fw-bold small mb-1">Password</label>
+              <div className="input-group input-group-sm">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="form-control"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Enter password"
+                />
                 <button
-                  className="btn btn-secondary btn-sm me-2"
-                  onClick={handleCancel}
+                  className="btn btn-outline-secondary"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
                 >
-                  <FaTimes /> Cancel
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
-              )}
+                <button
+                  className="btn btn-warning"
+                  type="button"
+                  onClick={generatePassword}
+                >
+                  <FaKey />
+                </button>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="d-flex justify-content-end gap-2 mt-3">
               <button
-                className={`btn btn-sm ${
-                  isEditing ? "btn-primary" : "btn-success"
-                }`}
-                onClick={isEditing ? handleUpdatePersonnel : handleAddPersonnel}
+                className="btn btn-sm btn-success"
+                onClick={handleAddPersonnel}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   "Saving..."
-                ) : isEditing ? (
-                  <>
-                    <FaSave /> Update
-                  </>
                 ) : (
                   <>
-                    <FaUserPlus /> Add
+                    <FaUserPlus className="me-1" /> Add
                   </>
                 )}
               </button>
@@ -306,37 +398,43 @@ export default function Personnels() {
               </p>
             ) : (
               <ul className="list-group list-group-flush small">
-                {personnels.map((person) => (
-                  <li
-                    key={person.user_id}
-                    className="list-group-item d-flex justify-content-between align-items-center p-2"
-                  >
-                    <div className="text-truncate">
-                      <strong>
-                        {person.first_name}{" "}
-                        {person.middle_name ? person.middle_name + " " : ""}
-                        {person.last_name}
-                      </strong>
-                      <p className="mb-0 small text-muted">
-                        {person.email} | {person.phone}
-                      </p>
-                    </div>
-                    <div className="d-flex gap-1">
-                      <button
-                        className="btn btn-info btn-sm"
-                        onClick={() => handleViewPersonnel(person)}
-                      >
-                        <FaEye />
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleRemovePersonnel(person.user_id)}
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
-                  </li>
-                ))}
+                {filteredPersonnels.length === 0 ? (
+                  <p className="text-muted text-center small">
+                    No matching personnel found.
+                  </p>
+                ) : (
+                  filteredPersonnels.map((person) => (
+                    <li
+                      key={person.user_id}
+                      className="list-group-item d-flex justify-content-between align-items-center p-2"
+                    >
+                      <div className="text-truncate">
+                        <strong>
+                          {person.first_name}{" "}
+                          {person.middle_name ? person.middle_name + " " : ""}
+                          {person.last_name}
+                        </strong>
+                        <p className="mb-0 small text-muted">
+                          {person.email} | {person.phone}
+                        </p>
+                      </div>
+                      <div className="d-flex gap-1">
+                        <button
+                          className="btn btn-info btn-sm"
+                          onClick={() => handleViewPersonnel(person)}
+                        >
+                          <FaEye />
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleRemovePersonnel(person.user_id)}
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    </li>
+                  ))
+                )}
               </ul>
             )}
           </div>

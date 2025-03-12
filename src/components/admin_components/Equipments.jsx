@@ -93,15 +93,17 @@ export default function Equipments() {
       const response = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/equipments`
       );
+
       const uniqueEquipments = response.data.reduce((acc, equipment) => {
         if (!acc.find((e) => e.equipment_id === equipment.equipment_id)) {
           acc.push(equipment);
         }
         return acc;
       }, []);
+
       setEquipments(uniqueEquipments);
     } catch (err) {
-      console.error("❌ Error fetching equipments:", err);
+      console.error("Error fetching equipments:", err);
       toast.error("Failed to load equipments.");
     } finally {
       setIsFetching(false);
@@ -115,7 +117,7 @@ export default function Equipments() {
       );
       setLaboratories(response.data.data || []);
     } catch (err) {
-      console.error("❌ Error fetching laboratories:", err);
+      console.error("Error fetching laboratories:", err);
     }
   };
 
@@ -175,12 +177,12 @@ export default function Equipments() {
       !newEquipment.laboratory_id ||
       !newEquipment.description
     ) {
-      toast.warn("⚠️ Please fill in all required fields.");
+      toast.warn("Please fill in all required fields.");
       return;
     }
 
     if (newEquipment.images.length < 1) {
-      toast.warn("⚠️ Please upload at least one image.");
+      toast.warn("Please upload at least one image.");
       return;
     }
 
@@ -335,7 +337,10 @@ export default function Equipments() {
   };
 
   return (
-    <div className="container-fluid px-2">
+    <div
+      className="container-fluid px-2"
+      style={{ maxWidth: "1300px", margin: "auto" }}
+    >
       <ToastContainer />
       <ReLoginModal
         show={showReLoginModal}
@@ -378,11 +383,17 @@ export default function Equipments() {
                 <select
                   className="form-select form-select-sm"
                   value={filterLaboratory}
-                  onChange={(e) => setFilterLaboratory(e.target.value)}
+                  onChange={(e) => {
+                    const selectedValue = e.target.value;
+                    setFilterLaboratory(
+                      selectedValue !== "" ? String(selectedValue) : ""
+                    ); 
+                  }}
                 >
                   <option value="">Lab</option>
+
                   {laboratories.map((lab) => (
-                    <option key={lab.lab_id} value={lab.lab_name}>
+                    <option key={lab.lab_id} value={String(lab.lab_id)}>
                       {lab.lab_name} (#{lab.lab_number})
                     </option>
                   ))}
@@ -687,12 +698,16 @@ export default function Equipments() {
                       (equipment) =>
                         filterType === "" || equipment.type === filterType
                     )
-                    .filter(
-                      (equipment) =>
-                        filterLaboratory === "" ||
-                        (equipment.laboratory &&
-                          equipment.laboratory.lab_name === filterLaboratory)
-                    )
+                    .filter((equipment) => {
+                      if (!filterLaboratory) return true;
+
+                      return (
+                        equipment.laboratory &&
+                        equipment.laboratory.lab_id &&
+                        String(equipment.laboratory.lab_id).trim() ===
+                          String(filterLaboratory).trim()
+                      );
+                    })
                     .filter(
                       (equipment) =>
                         filterBrand === "" || equipment.brand === filterBrand
@@ -742,7 +757,6 @@ export default function Equipments() {
         equipment={selectedEquipment}
         onSave={onUpdateEquipment}
       />
-      
     </div>
   );
 }

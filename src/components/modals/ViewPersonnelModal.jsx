@@ -34,6 +34,7 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
   const [selectedLab, setSelectedLab] = useState(null);
   const [designation, setDesignation] = useState(null);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isRemovingAssignment, setIsRemovingAssignment] = useState(false);
   const [isReassigning, setIsReassigning] = useState(false);
 
   const [assignmentHistory, setAssignmentHistory] = useState([]);
@@ -95,12 +96,19 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
       );
 
       if (response.data.data) {
-        setDesignation(response.data.data);
+        const latestDesignation = response.data.data;
+
+        if (latestDesignation.status === "Inactive") {
+          setDesignation(null);
+        } else {
+          setDesignation(latestDesignation);
+        }
       } else {
         setDesignation(null);
       }
     } catch (err) {
       console.error("Error fetching personnel designation:", err);
+      setDesignation(null);
     } finally {
       setIsLoadingDesignation(false);
     }
@@ -115,7 +123,12 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
           personnel.user_id
         }`
       );
-      setAssignmentHistory(response.data.data || []);
+
+      const sortedHistory = response.data.data.sort(
+        (a, b) => new Date(b.assign_date) - new Date(a.assign_date)
+      );
+
+      setAssignmentHistory(sortedHistory || []);
     } catch (err) {
       console.error("Error fetching assignment history:", err);
     } finally {
@@ -142,7 +155,9 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
       );
 
       toast.success("Laboratory assigned successfully!");
+
       fetchDesignation();
+      fetchAssignmentHistory();
 
       setSelectedLab(null);
       setIsReassigning(false);
@@ -151,6 +166,33 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
       toast.error("Failed to assign laboratory.");
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  const handleRemoveAssignment = async () => {
+    if (!designation) {
+      toast.warn("No active assignment to remove.");
+      return;
+    }
+
+    setIsRemovingAssignment(true);
+    try {
+      const payload = { user_id: personnel.user_id };
+
+      await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/personnel_designations/remove`,
+        payload
+      );
+
+      toast.success("Laboratory assignment removed successfully.");
+
+      fetchDesignation();
+      fetchAssignmentHistory();
+    } catch (err) {
+      console.error("Error removing assignment:", err);
+      toast.error("Failed to remove assignment.");
+    } finally {
+      setIsRemovingAssignment(false);
     }
   };
 
@@ -173,7 +215,9 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
       );
 
       toast.success("Laboratory reassigned successfully!");
+
       fetchDesignation();
+      fetchAssignmentHistory();
 
       setSelectedLab(null);
       setIsReassigning(false);
@@ -209,9 +253,17 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
 
     setIsSaving(true);
     try {
-      const updatedData = { ...editedPersonnel };
-      if (!editedPersonnel.new_password) {
-        delete updatedData.new_password;
+      const updatedData = {
+        first_name: editedPersonnel.first_name,
+        middle_name: editedPersonnel.middle_name || "",
+        last_name: editedPersonnel.last_name,
+        phone: editedPersonnel.phone,
+        email: editedPersonnel.email,
+        username: editedPersonnel.username,
+      };
+
+      if (editedPersonnel.new_password) {
+        updatedData.new_password = editedPersonnel.new_password;
       }
 
       await axios.put(
@@ -220,11 +272,15 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
         }`,
         updatedData
       );
-      toast.success("✅ Personnel updated successfully!");
+
+      toast.success("Personnel updated successfully!");
+
       onSave(editedPersonnel);
+
       setIsEditing(false);
     } catch (err) {
-      toast.error("❌ Failed to update personnel.");
+      console.error("Error updating personnel:", err);
+      toast.error("Failed to update personnel.");
     } finally {
       setIsSaving(false);
     }
@@ -504,14 +560,28 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
                   )}
 
                   {selectedLab === null && (
-                    <Button
-                      size="sm"
-                      variant="warning"
-                      className="w-100 small mt-2"
-                      onClick={() => setSelectedLab("")}
-                    >
-                      🔄 Change Lab Assignment
-                    </Button>
+                    <div className="d-flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant="warning"
+                        className="w-100 small"
+                        onClick={() => setSelectedLab("")}
+                      >
+                        🔄 Change Lab Assignment
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        className="w-100 small"
+                        onClick={handleRemoveAssignment}
+                        disabled={isRemovingAssignment}
+                      >
+                        {isRemovingAssignment
+                          ? "Removing..."
+                          : "❌ Remove Assignment"}
+                      </Button>
+                    </div>
                   )}
                 </>
               ) : (
