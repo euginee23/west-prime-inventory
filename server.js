@@ -349,6 +349,17 @@ app.post("/laboratories", async (req, res) => {
   try {
     connection = await db.getConnection();
 
+    const [existingLab] = await connection.execute(
+      "SELECT * FROM laboratories WHERE lab_number = ?",
+      [number]
+    );
+
+    if (existingLab.length > 0) {
+      return res
+        .status(409)
+        .json({ message: "Laboratory number already exists." });
+    }
+
     await connection.execute(
       "INSERT INTO laboratories (lab_name, lab_number) VALUES (?, ?)",
       [name, number]
@@ -356,7 +367,34 @@ app.post("/laboratories", async (req, res) => {
 
     res.status(201).json({ message: "Laboratory added successfully." });
   } catch (err) {
-    console.error("❌ Error adding laboratory:", err);
+    console.error("Error adding laboratory:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// DELETE A LABORATORY
+app.delete("/laboratories/:id", async (req, res) => {
+  const { id } = req.params;
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    const [lab] = await connection.execute(
+      "SELECT * FROM laboratories WHERE lab_id = ?",
+      [id]
+    );
+    if (lab.length === 0) {
+      return res.status(404).json({ message: "Laboratory not found." });
+    }
+
+    await connection.execute("DELETE FROM laboratories WHERE lab_id = ?", [id]);
+
+    res.status(200).json({ message: "✅ Laboratory deleted successfully." });
+  } catch (err) {
+    console.error("❌ Error deleting laboratory:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -544,9 +582,9 @@ app.get("/equipments", async (req, res) => {
               }
             : null,
 
-          laboratory: row.lab_id 
+          laboratory: row.lab_id
             ? {
-                lab_id: row.lab_id, 
+                lab_id: row.lab_id,
                 lab_name: row.lab_name,
                 lab_number: row.lab_number,
               }
@@ -988,6 +1026,54 @@ app.get("/personnel_designations/:user_id", async (req, res) => {
       .json({ message: "Personnel designation found.", data: results[0] });
   } catch (err) {
     console.error("❌ Error fetching personnel designation:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET LATEST PERSONNEL ASSIGNMENTS FOR A LABORATORY (ONLY THE MOST RECENT PER PERSONNEL)
+app.get("/personnel_designations/laboratory/:lab_id", async (req, res) => {
+  const { lab_id } = req.params;
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(
+      `SELECT pd.*, u.first_name, u.last_name
+       FROM personnel_designations pd
+       LEFT JOIN users u ON pd.user_id = u.user_id
+       WHERE pd.lab_id = ?
+       AND pd.created_at = (
+           SELECT MAX(pd2.created_at)
+           FROM personnel_designations pd2
+           WHERE pd2.user_id = pd.user_id
+       )
+       ORDER BY pd.created_at DESC`, // Fetch only the latest assignment per personnel
+      [lab_id]
+    );
+
+    if (results.length === 0) {
+      return res.status(200).json({
+        message: "No personnel assigned to this laboratory.",
+        data: [],
+      });
+    }
+
+    const personnelList = results.map((personnel) => ({
+      first_name: personnel.first_name,
+      last_name: personnel.last_name,
+      status: personnel.status,
+      created_at: personnel.created_at,
+    }));
+
+    res.status(200).json({
+      message: "Latest personnel assignments found.",
+      data: personnelList,
+    });
+  } catch (err) {
+    console.error("❌ Error fetching assigned personnel:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();

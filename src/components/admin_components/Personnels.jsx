@@ -216,7 +216,7 @@ export default function Personnels() {
 
   return (
     <div
-      className="container mt-3"
+      className="container-fluid px-2"
       style={{ maxWidth: "1100px", margin: "auto" }}
     >
       <ToastContainer />
@@ -264,8 +264,8 @@ export default function Personnels() {
                 )
               }
             >
-              <option value="">All Personnels</option>
-              <option value="unassigned">Unassigned Personnels</option>{" "}
+              <option value="">All Laboratories</option>
+              <option value="unassigned">Unassigned</option>{" "}
               {laboratories.map((lab) => (
                 <option key={lab.lab_id} value={lab.lab_id}>
                   {lab.lab_name} (#{lab.lab_number})

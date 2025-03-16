@@ -302,10 +302,10 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
           {/* Left Side: Personnel Information */}
           <Col xs={12} md={7}>
             <Card className="shadow-sm p-3 border rounded">
-              <h6 className="fw-bold text-primary mb-3">
-                📋 Personnel Information
+              <h6 className="fw-bold text-primary mb-2">
+                Personnel Information
               </h6>
-
+              <hr className="mb-2 mt-1 border-top border-secondary" />
               <Form>
                 <div className="row g-2">
                   <Form.Group className="col-12">
@@ -363,9 +363,7 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
                 </div>
 
                 <Form.Group className="mt-2">
-                  <Form.Label className="fw-bold small mb-1">
-                    📞 Phone
-                  </Form.Label>
+                  <Form.Label className="fw-bold small mb-1">Phone</Form.Label>
                   {isEditing ? (
                     <Form.Control
                       type="text"
@@ -380,9 +378,7 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
                 </Form.Group>
 
                 <Form.Group className="mt-2">
-                  <Form.Label className="fw-bold small mb-1">
-                    📧 Email
-                  </Form.Label>
+                  <Form.Label className="fw-bold small mb-1">Email</Form.Label>
                   {isEditing ? (
                     <Form.Control
                       type="email"
@@ -398,7 +394,7 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
 
                 <Form.Group className="mt-2">
                   <Form.Label className="fw-bold small mb-1">
-                    👤 Username
+                    Username
                   </Form.Label>
                   {isEditing ? (
                     <Form.Control
@@ -449,7 +445,7 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
           <Col xs={12} md={5}>
             <Card className="shadow-sm p-3 border rounded">
               <h6 className="fw-bold text-primary mb-3 small">
-                🏢 Assigned Laboratory
+                Assigned Laboratory
               </h6>
 
               {isLoadingDesignation ? (
@@ -632,7 +628,7 @@ const ViewPersonnelModal = ({ show, onClose, personnel, onSave }) => {
 
             <Card className="shadow-sm p-3 border rounded mt-3">
               <h6 className="fw-bold text-primary mb-3 small">
-                📜 Assignment History
+                Assignment History
               </h6>
 
               {isLoadingHistory ? (

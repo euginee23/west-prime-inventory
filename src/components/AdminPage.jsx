@@ -149,7 +149,7 @@ export default function AdminPage() {
       >
         {activeSection === "dashboard" && <Dashboard />}
         {activeSection === "equipments" && <Equipments />}
-        {activeSection === "laboratories" && <Laboratories />}
+        {activeSection === "laboratories" && <Laboratories setActiveSection={setActiveSection} />}
         {activeSection === "personnels" && <Personnels />}
         {activeSection === "scan" && <ScanEquipment />}
         {activeSection === "track" && <Track />}
