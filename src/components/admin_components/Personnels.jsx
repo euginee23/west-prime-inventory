@@ -145,33 +145,6 @@ export default function Personnels() {
     }
   };
 
-  const handleUpdatePersonnel = async () => {
-    if (!editingId) {
-      toast.error("No personnel selected for updating.");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const updatedData = { ...formData };
-      if (!formData.password) delete updatedData.password;
-
-      await axios.put(
-        `${import.meta.env.VITE_API_BASE_URL}/personnels/${editingId}`,
-        updatedData
-      );
-      toast.success("Personnel updated successfully!");
-
-      fetchPersonnels();
-      handleCancel();
-    } catch (err) {
-      console.error("Error updating personnel:", err);
-      toast.error("Failed to update personnel.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleRemovePersonnel = (id) => {
     setDeleteId(id);
     setConfirmText("");

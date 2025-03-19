@@ -4,9 +4,10 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { getLoggedInUser, logout } from "../utils/auth";
 import ProfileSettings from "./common_components/ProfileSettings";
+import Equipments from "./common_components/Equipments";
 
 export default function PersonnelPage() {
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeSection, setActiveSection] = useState("scan");
   const user = getLoggedInUser();
 
   const menuItems = [
@@ -125,16 +126,14 @@ export default function PersonnelPage() {
           overflowY: "auto",
         }}
       >
-        {activeSection === "dashboard" && <div>Welcome to your dashboard.</div>}
         {activeSection === "scan" && (
           <div>Scan QR codes for quick item tracking.</div>
         )}
         {activeSection === "track" && (
           <div>Track equipment and personnel activities.</div>
         )}
-        {activeSection === "equipments" && (
-          <div>View and manage equipment inventory.</div>
-        )}
+        {activeSection === "equipments" && <Equipments />}
+        
         {activeSection === "reports" && (
           <div>View reports assigned to you.</div>
         )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getLoggedInUser } from "../../utils/auth.js";
-import { openCamera } from "../../utils/camera";
+import { openCamera } from "../../utils/camera.js";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { FaPlus, FaEdit, FaSave, FaTrash, FaTimes } from "react-icons/fa";
@@ -67,7 +67,6 @@ export default function Equipments() {
   ];
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editingId, setEditingId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
 
@@ -81,6 +80,7 @@ export default function Equipments() {
   const [filterLaboratory, setFilterLaboratory] = useState("");
   const [filterBrand, setFilterBrand] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [assignedLabName, setAssignedLabName] = useState("Unknown Laboratory");
 
   useEffect(() => {
     fetchEquipments();
@@ -89,19 +89,25 @@ export default function Equipments() {
 
   const fetchEquipments = async () => {
     setIsFetching(true);
+
+    const user = getLoggedInUser();
+    if (!user || !user.token) {
+      setShowReLoginModal(true);
+      setIsFetching(false);
+      return;
+    }
+
     try {
       const response = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/equipments`
+        `${import.meta.env.VITE_API_BASE_URL}/equipments`,
+        {
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+          },
+        }
       );
 
-      const uniqueEquipments = response.data.reduce((acc, equipment) => {
-        if (!acc.find((e) => e.equipment_id === equipment.equipment_id)) {
-          acc.push(equipment);
-        }
-        return acc;
-      }, []);
-
-      setEquipments(uniqueEquipments);
+      setEquipments(response.data);
     } catch (err) {
       console.error("Error fetching equipments:", err);
       toast.error("Failed to load equipments.");
@@ -115,9 +121,32 @@ export default function Equipments() {
       const response = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/laboratories`
       );
-      setLaboratories(response.data.data || []);
+      const allLabs = response.data.data || [];
+      setLaboratories(allLabs);
+
+      if (user.role === "Personnel") {
+        const designationResponse = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/personnel_designations/${
+            user.user_id
+          }`
+        );
+
+        if (designationResponse.data.data) {
+          const assignedLab = designationResponse.data.data;
+          setFormData((prev) => ({
+            ...prev,
+            laboratory_id: assignedLab.lab_id,
+          }));
+          setAssignedLabName(
+            `${assignedLab.lab_name} (Lab #${assignedLab.lab_number})`
+          );
+        } else {
+          setAssignedLabName("Unknown Laboratory");
+        }
+      }
     } catch (err) {
       console.error("Error fetching laboratories:", err);
+      setAssignedLabName("Unknown Laboratory");
     }
   };
 
@@ -186,16 +215,32 @@ export default function Equipments() {
       return;
     }
 
-    const formDataToSend = new FormData();
-    Object.entries(newEquipment).forEach(([key, value]) => {
-      if (key === "images") {
-        value.forEach((file) => formDataToSend.append("images", file));
-      } else {
-        formDataToSend.append(key, value);
-      }
-    });
+    setIsLoading(true);
 
     try {
+      const checkResponse = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/equipments/search/${
+          newEquipment.number
+        }`
+      );
+
+      if (checkResponse.data.found) {
+        toast.error(
+          "This equipment number already exists. Please use a unique number."
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      const formDataToSend = new FormData();
+      Object.entries(newEquipment).forEach(([key, value]) => {
+        if (key === "images") {
+          value.forEach((file) => formDataToSend.append("images", file));
+        } else {
+          formDataToSend.append(key, value);
+        }
+      });
+
       await axios.post(
         `${import.meta.env.VITE_API_BASE_URL}/equipments`,
         formDataToSend,
@@ -203,6 +248,7 @@ export default function Equipments() {
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
+
       toast.success("Equipment added successfully!");
       setFormData({
         name: "",
@@ -219,10 +265,16 @@ export default function Equipments() {
     } catch (err) {
       if (err.response?.status === 401) {
         setShowReLoginModal(true);
+      } else if (err.response?.status === 409) {
+        toast.error(
+          "This equipment number already exists. Please use a unique number."
+        );
       } else {
         console.error("Error adding equipment:", err);
         toast.error("Failed to add equipment.");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -361,8 +413,13 @@ export default function Equipments() {
           </div>
 
           <div className="col-12 col-md-6">
-            <div className="row g-2 row-cols-2 row-cols-md-5">
-              {/* Type Filter */}
+            <div
+              className={`row g-2 ${
+                user.role !== "Personnel"
+                  ? "row-cols-2 row-cols-md-5"
+                  : "row-cols-2 row-cols-md-4"
+              }`}
+            >
               <div className="col">
                 <select
                   className="form-select form-select-sm"
@@ -378,29 +435,28 @@ export default function Equipments() {
                 </select>
               </div>
 
-              {/* Laboratory Filter */}
-              <div className="col">
-                <select
-                  className="form-select form-select-sm"
-                  value={filterLaboratory}
-                  onChange={(e) => {
-                    const selectedValue = e.target.value;
-                    setFilterLaboratory(
-                      selectedValue !== "" ? String(selectedValue) : ""
-                    ); 
-                  }}
-                >
-                  <option value="">Lab</option>
+              {user.role !== "Personnel" && (
+                <div className="col">
+                  <select
+                    className="form-select form-select-sm"
+                    value={filterLaboratory}
+                    onChange={(e) => {
+                      const selectedValue = e.target.value;
+                      setFilterLaboratory(
+                        selectedValue !== "" ? String(selectedValue) : ""
+                      );
+                    }}
+                  >
+                    <option value="">Lab</option>
+                    {laboratories.map((lab) => (
+                      <option key={lab.lab_id} value={String(lab.lab_id)}>
+                        {lab.lab_name} (#{lab.lab_number})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-                  {laboratories.map((lab) => (
-                    <option key={lab.lab_id} value={String(lab.lab_id)}>
-                      {lab.lab_name} (#{lab.lab_number})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Brand Filter */}
               <div className="col">
                 <select
                   className="form-select form-select-sm"
@@ -416,7 +472,6 @@ export default function Equipments() {
                 </select>
               </div>
 
-              {/* Status Filter */}
               <div className="col">
                 <select
                   className="form-select form-select-sm"
@@ -432,7 +487,6 @@ export default function Equipments() {
                 </select>
               </div>
 
-              {/* Reset Button (Full Width on Mobile) */}
               <div className="col">
                 <button
                   className="btn btn-sm btn-primary w-100"
@@ -467,9 +521,7 @@ export default function Equipments() {
         />
       )}
 
-      {/* Two-column layout */}
       <div className="row g-2">
-        {/* Left: Add/Edit Form */}
         <div className="col-12 col-md-4">
           <div className="card p-3 shadow-sm small">
             <h6 className="text-primary mb-2">
@@ -517,19 +569,28 @@ export default function Equipments() {
 
             <div className="mb-1">
               <label className="fw-bold small">Laboratory</label>
-              <select
-                className="form-select form-select-sm"
-                name="laboratory_id"
-                value={formData.laboratory_id}
-                onChange={handleChange}
-              >
-                <option value="">Select Laboratory</option>
-                {laboratories.map((lab) => (
-                  <option key={lab.lab_id} value={lab.lab_id}>
-                    {lab.lab_name} (#{lab.lab_number})
-                  </option>
-                ))}
-              </select>
+              {user.role === "Personnel" ? (
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  value={assignedLabName || "Unknown Laboratory"}
+                  disabled
+                />
+              ) : (
+                <select
+                  className="form-select form-select-sm"
+                  name="laboratory_id"
+                  value={formData.laboratory_id}
+                  onChange={handleChange}
+                >
+                  <option value="">Select Laboratory</option>
+                  {laboratories.map((lab) => (
+                    <option key={lab.lab_id} value={lab.lab_id}>
+                      {lab.lab_name} (#{lab.lab_number})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="mb-1">
@@ -643,21 +704,25 @@ export default function Equipments() {
                 </button>
               )}
               <button
-                className={`btn btn-sm ${
-                  isEditing ? "btn-primary" : "btn-success"
-                }`}
-                onClick={isEditing ? handleUpdateEquipment : handleAddEquipment}
-                disabled={isLoading}
+                className="btn btn-sm btn-success d-flex align-items-center justify-content-center"
+                style={{ minWidth: "100px" }} // Ensures proper spacing
+                onClick={handleAddEquipment}
+                disabled={isLoading} // ✅ Disable button while loading
               >
                 {isLoading ? (
-                  "Saving..."
-                ) : isEditing ? (
                   <>
-                    <FaSave /> Update
+                    <Loading
+                      type="spin"
+                      color="#ffffff"
+                      height={22}
+                      width={22}
+                      className="me-2"
+                    />
+                    Saving...
                   </>
                 ) : (
                   <>
-                    <FaPlus /> Add
+                    <FaPlus className="me-1" /> Add
                   </>
                 )}
               </button>

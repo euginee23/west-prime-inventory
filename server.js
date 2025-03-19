@@ -409,14 +409,21 @@ app.get("/personnels", async (req, res) => {
     connection = await db.getConnection();
 
     const [results] = await connection.execute(`
-      SELECT u.*, 
-             pd.lab_id, 
-             l.lab_name, 
-             l.lab_number 
+      SELECT u.user_id, u.user_type, u.first_name, u.middle_name, u.last_name, 
+             u.phone, u.email, u.username,
+             COALESCE(pd.lab_id, NULL) AS lab_id, 
+             COALESCE(l.lab_name, '') AS lab_name, 
+             COALESCE(l.lab_number, '') AS lab_number
       FROM users u
-      LEFT JOIN personnel_designations pd ON u.user_id = pd.user_id AND pd.status = 'Active'
+      LEFT JOIN (
+          SELECT user_id, lab_id 
+          FROM personnel_designations 
+          WHERE status = 'Active'
+          GROUP BY user_id
+      ) pd ON u.user_id = pd.user_id
       LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
       WHERE u.user_type = 'Personnel'
+      GROUP BY u.user_id
     `);
 
     res.status(200).json(results);
@@ -532,13 +539,16 @@ app.delete("/personnels/:id", async (req, res) => {
   }
 });
 
-// GET EQUIPMENTS
-app.get("/equipments", async (req, res) => {
+// GET EQUIPMENTS BASED ON USER ROLE AND ASSIGNED LABORATORY
+app.get("/equipments", authenticateToken, async (req, res) => {
   let connection;
   try {
     connection = await db.getConnection();
 
-    const [results] = await connection.execute(`
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    let query = `
       SELECT 
         e.*, 
         ei.img_id, 
@@ -553,7 +563,31 @@ app.get("/equipments", async (req, res) => {
       LEFT JOIN equipment_images ei ON e.equipment_id = ei.equipment_id
       LEFT JOIN users u ON e.user_id = u.user_id
       LEFT JOIN laboratories l ON e.laboratory_id = l.lab_id
-    `);
+    `;
+
+    let queryParams = [];
+
+    if (userRole === "Personnel") {
+      // Get the latest active lab assignment for the Personnel
+      const [designation] = await connection.execute(
+        `SELECT lab_id FROM personnel_designations 
+         WHERE user_id = ? AND status = 'Active'
+         ORDER BY created_at DESC LIMIT 1`,
+        [userId]
+      );
+
+      if (designation.length === 0) {
+        return res.status(403).json({ message: "No active lab assignment found." });
+      }
+
+      const assignedLabId = designation[0].lab_id;
+
+      // Filter equipment by the assigned lab_id
+      query += " WHERE e.laboratory_id = ?";
+      queryParams.push(assignedLabId);
+    }
+
+    const [results] = await connection.execute(query, queryParams);
 
     const equipmentMap = new Map();
 
@@ -611,6 +645,7 @@ app.get("/equipments", async (req, res) => {
     if (connection) connection.release();
   }
 });
+
 
 // GET EQUIPMENT BY ID
 app.get("/equipments/:equipment_id", async (req, res) => {
@@ -767,27 +802,25 @@ app.post("/equipments", upload.array("images", 3), async (req, res) => {
     !user_id ||
     !laboratory_id
   ) {
-    console.error("🚨 Missing required fields:", {
-      name,
-      number,
-      type,
-      brand,
-      availability_status,
-      description,
-      user_id,
-      laboratory_id,
-    });
     return res.status(400).json({ message: "All fields are required." });
   }
 
   if (!images || images.length < 1) {
-    console.error("🚨 No images uploaded.");
     return res.status(400).json({ message: "At least one image is required." });
   }
 
   let connection;
   try {
     connection = await db.getConnection();
+
+    const [existingEquipment] = await connection.execute(
+      "SELECT COUNT(*) AS count FROM equipments WHERE number = ?",
+      [number]
+    );
+
+    if (existingEquipment[0].count > 0) {
+      return res.status(409).json({ message: "Equipment number already exists." });
+    }
 
     const parsedUserId = parseInt(user_id, 10);
     const parsedLabId = parseInt(laboratory_id, 10);
@@ -822,6 +855,7 @@ app.post("/equipments", upload.array("images", 3), async (req, res) => {
     for (const image of images) {
       await connection.execute(
         `INSERT INTO equipment_images (equipment_id, image) VALUES (?, ?)`,
+
         [equipmentId, Buffer.from(image.buffer)]
       );
     }
@@ -998,7 +1032,7 @@ app.get("/clients/search", async (req, res) => {
   }
 });
 
-// GET PERSONNEL DESIGNATION (Latest Assignment)
+// GET PERSONNEL DESIGNATION LABORATORY
 app.get("/personnel_designations/:user_id", async (req, res) => {
   const { user_id } = req.params;
   let connection;
@@ -1007,25 +1041,26 @@ app.get("/personnel_designations/:user_id", async (req, res) => {
     connection = await db.getConnection();
 
     const [results] = await connection.execute(
-      `SELECT pd.*, l.lab_name, l.lab_number 
+      `SELECT pd.lab_id, l.lab_name, l.lab_number 
        FROM personnel_designations pd
        LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
-       WHERE pd.user_id = ?
+       WHERE pd.user_id = ? AND pd.status = 'Active'
        ORDER BY pd.created_at DESC LIMIT 1`,
       [user_id]
     );
 
-    if (results.length === 0 || results[0].status === "Inactive") {
+    if (results.length === 0) {
       return res
         .status(200)
-        .json({ message: "No active designation found.", data: null });
+        .json({ message: "No active laboratory assignment found.", data: null });
     }
 
-    res
-      .status(200)
-      .json({ message: "Personnel designation found.", data: results[0] });
+    res.status(200).json({
+      message: "Personnel laboratory found.",
+      data: results[0],
+    });
   } catch (err) {
-    console.error("❌ Error fetching personnel designation:", err);
+    console.error("❌ Error fetching personnel lab:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1050,7 +1085,7 @@ app.get("/personnel_designations/laboratory/:lab_id", async (req, res) => {
            FROM personnel_designations pd2
            WHERE pd2.user_id = pd.user_id
        )
-       ORDER BY pd.created_at DESC`, // Fetch only the latest assignment per personnel
+       ORDER BY pd.created_at DESC`,
       [lab_id]
     );
 

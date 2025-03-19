@@ -60,9 +60,7 @@ function ViewLaboratoryModal({ show, onClose, laboratory, setActiveSection }) {
       <Modal.Body className="p-3">
         {/* Laboratory Info */}
         <Card className="shadow-sm p-3 border rounded mb-3">
-          <h6 className="fw-bold text-primary mb-2">
-            Laboratory Information
-          </h6>
+          <h6 className="fw-bold text-primary mb-2">Laboratory Information</h6>
           <hr className="mb-2 mt-1 border-top border-secondary" />
           <Row className="g-2 small">
             <Col xs={5}>
@@ -91,13 +89,6 @@ function ViewLaboratoryModal({ show, onClose, laboratory, setActiveSection }) {
             </div>
           ) : assignedPersonnel.length > 0 ? (
             <div className="p-3 border rounded bg-light">
-              <Row className="mb-2 small text-center">
-                <Col xs={12} className="fw-bold">
-                  Personnel {currentPersonnelIndex + 1} of{" "}
-                  {assignedPersonnel.length}
-                </Col>
-              </Row>
-
               <Row className="mb-2 small">
                 <Col xs={5}>
                   <strong>Personnel Name:</strong>
@@ -166,6 +157,12 @@ function ViewLaboratoryModal({ show, onClose, laboratory, setActiveSection }) {
                   >
                     <FaChevronLeft />
                   </Button>
+                  <Row className="mt-2 small text-center">
+                    <Col xs={13} className="fw-bold">
+                      Personnel {currentPersonnelIndex + 1} of{" "}
+                      {assignedPersonnel.length}
+                    </Col>
+                  </Row>
                   <Button
                     variant="success"
                     className="rounded-square"

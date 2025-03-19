@@ -5,7 +5,7 @@ import { getLoggedInUser, logout } from "../utils/auth";
 import ProfileSettings from "./common_components/ProfileSettings";
 import Laboratories from "./admin_components/Laboratories";
 import Personnels from "./admin_components/Personnels";
-import Equipments from "./admin_components/Equipments";
+import Equipments from "./common_components/Equipments";
 import ScanEquipment from "./admin_components/ScanEquipment";
 import Dashboard from "./admin_components/Dashboard";
 import ReLoginModal from "../components/modals/ReloginModal";
