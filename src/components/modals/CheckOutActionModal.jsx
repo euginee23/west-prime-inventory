@@ -139,6 +139,20 @@ const CheckOutActionModal = ({
       return;
     }
 
+    if (!clientData.return_date) {
+      toast.warn("Please select an expected return date and time.");
+      return;
+    }
+
+    // Validate return date and time
+    const currentDateTime = new Date().toISOString().slice(0, 16); // Format YYYY-MM-DDTHH:MM
+    if (clientData.return_date < currentDateTime) {
+      toast.warn("Return date and time cannot be in the past.", {
+        position: "top-center",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -176,6 +190,7 @@ const CheckOutActionModal = ({
           reason: actionReason,
           date: new Date().toISOString().slice(0, 10),
           time: new Date().toTimeString().split(" ")[0],
+          return_datetime: clientData.return_date,
           status,
         }
       );
@@ -281,6 +296,43 @@ const CheckOutActionModal = ({
                     </div>
                   ))}
                 </div>
+              </Card>
+
+              <Card className="shadow-sm p-2 mt-2 bg-light">
+                <h6 className="fw-bold mb-2" style={{ textAlign: "center" }}>
+                  Expected Return Date & Time
+                </h6>
+                <Form.Group className="mb-1">
+                  <Form.Label className="fw-bold small">
+                    Expected Return Date & Time *
+                  </Form.Label>
+                  <Form.Control
+                    type="datetime-local"
+                    name="return_date"
+                    value={clientData.return_date || ""}
+                    min={new Date().toISOString().slice(0, 16)} // Prevents selecting past date/time
+                    onChange={(e) => {
+                      const selectedDateTime = e.target.value;
+                      const now = new Date().toISOString().slice(0, 16);
+
+                      if (selectedDateTime < now) {
+                        toast.warn(
+                          "Return date & time cannot be in the past.",
+                          {
+                            position: "top-center",
+                          }
+                        );
+                      } else {
+                        setClientData({
+                          ...clientData,
+                          return_date: selectedDateTime,
+                        });
+                      }
+                    }}
+                    required
+                    size="sm"
+                  />
+                </Form.Group>
               </Card>
             </Col>
 

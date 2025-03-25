@@ -90,6 +90,20 @@ const ScanEquipment = () => {
     }
   };
 
+  const fetchReturnDateTime = async (equipmentId) => {
+    try {
+      const response = await axios.get(
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/scanned-equipment-actions/return-datetime/${equipmentId}`
+      );
+      return response.data.return_datetime;
+    } catch (error) {
+      console.error("Error fetching return datetime:", error);
+      return null;
+    }
+  };
+
   const fetchEquipmentDetails = async (qrData) => {
     if (!qrData || isNaN(qrData)) {
       setError("Invalid QR Code. Please scan a valid equipment QR.");
@@ -105,10 +119,21 @@ const ScanEquipment = () => {
         `${import.meta.env.VITE_API_BASE_URL}/equipments/${qrData}`
       );
 
-      setEquipment(response.data);
+      const equipmentData = response.data;
+
+      if (equipmentData.equipment_id) {
+        if (equipmentData.availability_status === "In-Use") {
+          const returnDatetime = await fetchReturnDateTime(
+            equipmentData.equipment_id
+          );
+          equipmentData.return_datetime = returnDatetime || null;
+        }
+      }
+
+      setEquipment(equipmentData);
       setError("");
 
-      if (response.data.availability_status === "In-Use") {
+      if (equipmentData.availability_status === "In-Use") {
         toast.info("Equipment is currently In-Use. Choose an action.", {
           position: "top-center",
         });
@@ -141,7 +166,18 @@ const ScanEquipment = () => {
       );
 
       if (response.data.found) {
-        setEquipment(response.data.equipment);
+        const equipmentData = response.data.equipment;
+
+        if (equipmentData.equipment_id) {
+          if (equipmentData.availability_status === "In-Use") {
+            const returnDatetime = await fetchReturnDateTime(
+              equipmentData.equipment_id
+            );
+            equipmentData.return_datetime = returnDatetime || null;
+          }
+        }
+
+        setEquipment(equipmentData);
         setError("");
         setIsScanning(false);
       } else {
@@ -152,7 +188,6 @@ const ScanEquipment = () => {
         setIsScanning(true);
       }
     } catch (err) {
-      console.error("Error fetching equipment:", err);
       setEquipment(null);
       toast.error("Something went wrong. Please try again.", {
         position: "top-center",
@@ -496,6 +531,26 @@ const ScanEquipment = () => {
           {/* Actions Section */}
           <Card className="mt-2 p-3 text-center">
             <h6 className="fw-bold">Equipment Actions</h6>
+
+            {equipment?.availability_status === "In-Use" ? (
+              <div className="alert alert-light text-center py-1 small">
+                {equipment?.return_datetime ? (
+                  <>
+                    <strong>Expected Return:</strong>{" "}
+                    {new Date(equipment.return_datetime).toLocaleString()}{" "}
+                    <br />
+                    <strong>Status:</strong>{" "}
+                    {new Date(equipment.return_datetime) < new Date() ? (
+                      <span className="text-danger fw-bold">❌ Overdue, please contact the holder.</span>
+                    ) : (
+                      <span className="text-success fw-bold">✅ Good, not yet overdue</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-muted">No return date set.</span>
+                )}
+              </div>
+            ) : null}
 
             {equipment ? (
               equipment.availability_status === "In-Use" ? (

@@ -90,6 +90,8 @@ const ViewTrackedEquipmentModal = ({ show, onClose, trackingCode }) => {
         show={showMoreInfo}
         onClose={() => setShowMoreInfo(false)}
         action={action}
+        latestStatus={action?.latest_status} 
+        latestReturnDateTime={action?.latest_return_datetime}
       />
     </>
   );

@@ -1044,7 +1044,7 @@ app.get("/personnel_designations/:user_id", async (req, res) => {
     connection = await db.getConnection();
 
     const [results] = await connection.execute(
-      `SELECT pd.lab_id, l.lab_name, l.lab_number 
+      `SELECT pd.lab_id, l.lab_name, l.lab_number, l.created_at 
        FROM personnel_designations pd
        LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
        WHERE pd.user_id = ? AND pd.status = 'Active'
@@ -1287,6 +1287,7 @@ app.post("/scanned-equipment-actions", async (req, res) => {
     reason,
     date,
     time,
+    return_datetime,
     status,
   } = req.body;
 
@@ -1299,6 +1300,7 @@ app.post("/scanned-equipment-actions", async (req, res) => {
     !reason ||
     !date ||
     !time ||
+    !return_datetime ||
     !status
   ) {
     return res.status(400).json({ message: "All fields are required." });
@@ -1346,8 +1348,8 @@ app.post("/scanned-equipment-actions", async (req, res) => {
     await connection.execute(
       `INSERT INTO scanned_equipments_actions 
        (equipment_id, lab_id, user_id, client_id, tracking_code, 
-        reason, date, time, status, transaction_type) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        reason, date, time, return_datetime, status, transaction_type) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         equipment_id,
         lab_id,
@@ -1357,6 +1359,7 @@ app.post("/scanned-equipment-actions", async (req, res) => {
         reason,
         date,
         time,
+        return_datetime,
         status,
         "Check Out",
       ]
@@ -1418,10 +1421,15 @@ app.post(
 
       const lastAction = lastCheckOut[0];
 
+      const returnDatetime = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " ");
+
       await connection.execute(
         `INSERT INTO scanned_equipments_actions 
-         (equipment_id, lab_id, user_id, client_id, tracking_code, reason, date, time, status, transaction_type) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+         (equipment_id, lab_id, user_id, client_id, tracking_code, reason, date, time, return_datetime, status, transaction_type) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         [
           equipment_id,
           lab_id,
@@ -1431,6 +1439,7 @@ app.post(
           lastAction.reason,
           date,
           time,
+          returnDatetime,
           "Returned",
           "Return Equipment",
         ]
@@ -1445,6 +1454,7 @@ app.post(
         message: "Equipment successfully returned!",
         tracking_code: lastAction.tracking_code,
         reason: lastAction.reason,
+        return_datetime: returnDatetime,
         status: "Returned",
       });
     } catch (err) {
@@ -1459,7 +1469,7 @@ app.post(
 // INSERT SCANNED EQUIPMENT ACTION - MARK EQUIPMENT AS LOST
 app.post("/equipments/:id/mark-lost", async (req, res) => {
   const { id } = req.params;
-  const { lostReason } = req.body; 
+  const { lostReason } = req.body;
   let connection;
 
   try {
@@ -1496,7 +1506,7 @@ app.post("/equipments/:id/mark-lost", async (req, res) => {
         lastData.user_id,
         lastData.client_id,
         lastData.tracking_code,
-        reasonToStore, 
+        lastData.reason,
         date,
         time,
         "Lost",
@@ -1523,6 +1533,44 @@ app.post("/equipments/:id/mark-lost", async (req, res) => {
     if (connection) connection.release();
   }
 });
+
+// GET THE EXPECTED RETURN DATE OF A CHECKED OUT EQUIPMENT
+app.get(
+  "/scanned-equipment-actions/return-datetime/:equipment_id",
+  async (req, res) => {
+    const { equipment_id } = req.params;
+
+    let connection;
+    try {
+      connection = await db.getConnection();
+
+      const [lastTransaction] = await connection.execute(
+        `SELECT return_datetime 
+       FROM scanned_equipments_actions 
+       WHERE equipment_id = ? 
+       AND transaction_type = 'Check Out' 
+       ORDER BY action_id DESC 
+       LIMIT 1`,
+        [equipment_id]
+      );
+
+      if (lastTransaction.length === 0 || !lastTransaction[0].return_datetime) {
+        return res.status(404).json({
+          message: "No return date found for this equipment.",
+        });
+      }
+
+      res
+        .status(200)
+        .json({ return_datetime: lastTransaction[0].return_datetime });
+    } catch (err) {
+      console.error("Error fetching return datetime:", err);
+      res.status(500).json({ message: "Internal server error" });
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+);
 
 // UPDATE EQUIPMENT STATUS
 app.put("/equipments/:id/status", async (req, res) => {
@@ -1682,7 +1730,22 @@ app.get("/scanned-equipment-actions/:tracking_code", async (req, res) => {
               t.name AS technician_name, 
               t.contact_number AS technician_contact_number, 
               t.shop_name AS technician_shop_name, 
-              t.shop_address AS technician_shop_address
+              t.shop_address AS technician_shop_address,
+
+              /* Fetch latest status */
+              (SELECT sea2.status 
+               FROM scanned_equipments_actions sea2 
+               WHERE sea2.tracking_code = sea.tracking_code 
+               ORDER BY sea2.date DESC, sea2.time DESC 
+               LIMIT 1) AS latest_status,
+
+              /* Fetch latest return datetime */
+              (SELECT CONCAT(sea3.date, ' ', sea3.time) 
+               FROM scanned_equipments_actions sea3 
+               WHERE sea3.tracking_code = sea.tracking_code 
+               AND sea3.transaction_type = 'Return Equipment'
+               ORDER BY sea3.date DESC, sea3.time DESC 
+               LIMIT 1) AS latest_return_datetime
 
        FROM scanned_equipments_actions sea
        LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
@@ -1723,7 +1786,7 @@ app.get(
         `SELECT sea.tracking_code, 
                 CONCAT(sea.date, 'T', sea.time) AS datetime, 
                 sea.reason, sea.transaction_type, 
-                sea.notes,
+                sea.notes, sea.status,
                 sea.lab_id, sea.user_id, sea.technician_id,
                 u.first_name AS user_first_name, u.last_name AS user_last_name, u.user_type, 
                 c.first_name AS client_first_name, c.last_name AS client_last_name, 

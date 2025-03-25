@@ -8,6 +8,7 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
   const [loading, setLoading] = useState(false);
   const [trackingCode, setTrackingCode] = useState("");
   const [clientData, setClientData] = useState(null);
+  const [expectedReturnDatetime, setExpectedReturnDatetime] = useState(null);
 
   useEffect(() => {
     if (show) {
@@ -18,6 +19,8 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
 
   const fetchLastTransaction = async () => {
     if (!equipment) return;
+
+    setLoading(true);
 
     try {
       const response = await axios.get(
@@ -31,25 +34,21 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
         response.data.transaction_type === "Check Out" &&
         response.data.status === "Checked Out"
       ) {
-        setClientData({
-          first_name: response.data.client_first_name || "N/A",
-          middle_name: response.data.client_middle_name || "N/A",
-          last_name: response.data.client_last_name || "N/A",
-          contact_number: response.data.client_contact_number || "N/A",
-          email: response.data.client_email || "N/A",
-          address: response.data.client_address || "N/A",
-          client_type: response.data.client_type || "N/A",
-        });
-
+        setClientData(response.data);
         setTrackingCode(response.data.tracking_code);
+        setExpectedReturnDatetime(response.data.return_datetime || null);
       } else {
         setClientData(null);
         setTrackingCode(`RET-${Date.now()}`);
+        setExpectedReturnDatetime(null);
       }
     } catch (error) {
       console.error("Error fetching last transaction:", error);
       setClientData(null);
       setTrackingCode(`RET-${Date.now()}`);
+      setExpectedReturnDatetime(null);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -172,14 +171,14 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
               <Card className="shadow-sm p-2 bg-light">
                 <h6 className="fw-bold mb-2">👤 Client Information</h6>
                 <div className="small">
-                  {clientData ? (
+                  {clientData && clientData.first_name !== "N/A" ? (
                     [
-                      ["First Name", clientData.first_name],
-                      ["Middle Name", clientData.middle_name],
-                      ["Last Name", clientData.last_name],
-                      ["Contact Number", clientData.contact_number],
-                      ["Email", clientData.email],
-                      ["Address", clientData.address],
+                      ["First Name", clientData.client_first_name],
+                      ["Middle Name", clientData.client_middle_name],
+                      ["Last Name", clientData.client_last_name],
+                      ["Contact Number", clientData.client_contact_number],
+                      ["Email", clientData.client_email],
+                      ["Address", clientData.client_address],
                       ["Type", clientData.client_type],
                     ].map(([label, value]) => (
                       <div
@@ -194,13 +193,50 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
                   )}
                 </div>
               </Card>
+
+              <Card className="shadow-sm p-2 mt-2 bg-light mb-2">
+                <h6 className="fw-bold mb-2">📅 Expected Return Details</h6>
+                <div className="small">
+                  {expectedReturnDatetime ? (
+                    <>
+                      <div className="d-flex justify-content-between border-bottom py-1 flex-wrap">
+                        <strong>Expected Return:</strong>{" "}
+                        <span>
+                          {new Date(expectedReturnDatetime).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between border-bottom py-1 flex-wrap">
+                        <strong>Status:</strong>{" "}
+                        <span
+                          className={
+                            new Date(expectedReturnDatetime) < new Date()
+                              ? "text-danger fw-bold"
+                              : "text-success fw-bold"
+                          }
+                        >
+                          {new Date(expectedReturnDatetime) < new Date()
+                            ? "❌ Overdue"
+                            : "✅ On Time"}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-muted">No return date set.</p>
+                  )}
+                </div>
+              </Card>
             </Col>
           </Row>
         )}
       </Modal.Body>
 
       <Modal.Footer className="py-2 bg-light">
-        <Button variant="secondary" size="sm" onClick={onClose}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onClose}
+          disabled={loading}
+        >
           Cancel
         </Button>
         <Button
