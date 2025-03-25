@@ -4,9 +4,9 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import ReactLoading from "react-loading";
 
-const MaintenanceAcceptedModal = ({ show, onClose, equipment }) => {
+const MaintenanceAcceptedModal = ({ show, onClose, equipment, handleClear }) => {
   const [loading, setLoading] = useState(false);
-  const [confirming, setConfirming] = useState(false); // Added state for Confirm button loading
+  const [confirming, setConfirming] = useState(false);
   const [trackingCode, setTrackingCode] = useState("");
   const [technicianData, setTechnicianData] = useState(null);
   const [previousMaintenance, setPreviousMaintenance] = useState(null);
@@ -70,19 +70,19 @@ const MaintenanceAcceptedModal = ({ show, onClose, equipment }) => {
       toast.error("No equipment selected.");
       return;
     }
-
+  
     setConfirming(true);
-
+  
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_BASE_URL}/maintenance/ongoing-repair`,
         { equipment_id: equipment.equipment_id }
       );
-
+  
       toast.success(response.data.message);
-
-      // Update UI to reflect the new transaction
-      fetchLastRepairTransaction();
+  
+      handleClear();  
+      onClose();  
     } catch (error) {
       console.error("Error confirming maintenance:", error);
       toast.error("Failed to update maintenance status.");
@@ -90,6 +90,7 @@ const MaintenanceAcceptedModal = ({ show, onClose, equipment }) => {
       setConfirming(false);
     }
   };
+  
 
   return (
     <Modal show={show} onHide={onClose} centered size="xl">
@@ -211,7 +212,7 @@ const MaintenanceAcceptedModal = ({ show, onClose, equipment }) => {
                     ["Action", "Maintenance Accepted"],
                     ["Tracking Code", trackingCode],
                     ["Date", new Date().toISOString().slice(0, 10)],
-                    ["Status", "Being Repaired"],
+                    ["Status", "Being Maintained"],
                   ].map(([label, value]) => (
                     <div
                       key={label}

@@ -31,7 +31,16 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
         response.data.transaction_type === "Check Out" &&
         response.data.status === "Checked Out"
       ) {
-        setClientData(response.data);
+        setClientData({
+          first_name: response.data.client_first_name || "N/A",
+          middle_name: response.data.client_middle_name || "N/A",
+          last_name: response.data.client_last_name || "N/A",
+          contact_number: response.data.client_contact_number || "N/A",
+          email: response.data.client_email || "N/A",
+          address: response.data.client_address || "N/A",
+          client_type: response.data.client_type || "N/A",
+        });
+
         setTrackingCode(response.data.tracking_code);
       } else {
         setClientData(null);

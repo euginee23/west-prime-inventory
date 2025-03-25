@@ -1,8 +1,10 @@
 import React from "react";
 import { Modal, Button, Card, Row, Col } from "react-bootstrap";
-import { FaTools, FaUser, FaBuilding } from "react-icons/fa";
+import { FaTools, FaUser, FaBuilding, FaWrench } from "react-icons/fa";
 
 const TrackingViewMoreModal = ({ show, onClose, action }) => {
+  const isMaintenance = action?.tracking_code?.startsWith("MTN");
+
   return (
     <Modal show={show} onHide={onClose} centered size="xl">
       <Modal.Header className="py-2 bg-dark text-white">
@@ -18,7 +20,7 @@ const TrackingViewMoreModal = ({ show, onClose, action }) => {
       <Modal.Body className="p-3">
         {action ? (
           <Row className="g-2">
-            {/* Left Column: Equipment & Client */}
+            {/* Left Column: Equipment Details */}
             <Col md={6}>
               <Card className="shadow-sm p-2 bg-light mb-2">
                 <h6 className="fw-bold mb-2">
@@ -43,22 +45,39 @@ const TrackingViewMoreModal = ({ show, onClose, action }) => {
                 </div>
               </Card>
 
+              {/* Display Technician if Maintenance (MTN) else Client (TRK) */}
               <Card className="shadow-sm p-2 bg-light">
                 <h6 className="fw-bold mb-2">
-                  <FaUser className="me-2" /> Client:
+                  {isMaintenance ? (
+                    <>
+                      <FaWrench className="me-2" /> Technician:
+                    </>
+                  ) : (
+                    <>
+                      <FaUser className="me-2" /> Client:
+                    </>
+                  )}
                 </h6>
                 <div className="small">
-                  {[
-                    [
-                      "Full Name",
-                      `${action.client_first_name} ${
-                        action.client_middle_name || ""
-                      } ${action.client_last_name}`.trim(),
-                    ],
-                    ["Contact", action.client_contact],
-                    ["Email", action.client_email],
-                    ["Client Type", action.client_type],
-                  ].map(([label, value]) => (
+                  {(isMaintenance
+                    ? [
+                        ["Technician Name", action.technician_name],
+                        ["Contact", action.technician_contact_number],
+                        ["Shop Name", action.technician_shop_name],
+                        ["Shop Address", action.technician_shop_address],
+                      ]
+                    : [
+                        [
+                          "Full Name",
+                          `${action.client_first_name} ${
+                            action.client_middle_name || ""
+                          } ${action.client_last_name}`.trim(),
+                        ],
+                        ["Contact", action.client_contact],
+                        ["Email", action.client_email],
+                        ["Client Type", action.client_type],
+                      ]
+                  ).map(([label, value]) => (
                     <div
                       key={label}
                       className="d-flex justify-content-between border-bottom py-1"
@@ -70,7 +89,7 @@ const TrackingViewMoreModal = ({ show, onClose, action }) => {
               </Card>
             </Col>
 
-            {/* Right Column: Lab & Personnel */}
+            {/* Right Column: Lab & Transaction Details */}
             <Col md={6}>
               <Card className="shadow-sm p-2 bg-light mb-2">
                 <h6 className="fw-bold mb-2">

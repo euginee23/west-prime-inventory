@@ -9,8 +9,12 @@ import beepSound from "../../assets/beep.mp3";
 import ImageViewerModal from "../modals/ImageViewerModal";
 import CheckOutActionModal from "../modals/CheckOutActionModal";
 import ReturnEquipmentModal from "../modals/ReturnEquipmentModal";
+import MarkAsLostModal from "../modals/MarkAsLostModal";
 import MaintenanceActionModal from "../modals/MaintenanceActionModal";
 import MaintenanceAcceptedModal from "../modals/MaintenanceAcceptedModal";
+import MaintenanceCancelledModal from "../modals/MaintenanceCancelModal";
+import FinishRepairAndReturnModal from "../modals/FinishRepairAndReturnModal";
+import RepairFailedReturnModal from "../modals/RepairFailedModal";
 
 const ScanEquipment = () => {
   const [scanResult, setScanResult] = useState(null);
@@ -30,8 +34,14 @@ const ScanEquipment = () => {
   const [actionReason, setActionReason] = useState("");
 
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showMarkAsLostModal, setShowMarkAsLostModal] = useState(false);
 
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [showMaintenanceCancelledModal, setShowMaintenanceCancelledModal] =
+    useState(false);
+
+  const [showFinishRepairModal, setShowFinishRepairModal] = useState(false);
+  const [showRepairFailedModal, setShowRepairFailedModal] = useState(false);
 
   const [showMaintenanceAcceptedModal, setShowMaintenanceAcceptedModal] =
     useState(false);
@@ -209,14 +219,6 @@ const ScanEquipment = () => {
           )
         }
       />
-
-      <ReturnEquipmentModal
-        show={showReturnModal}
-        onClose={() => setShowReturnModal(false)}
-        equipment={equipment}
-        handleClear={handleClear}
-      />
-
       <CheckOutActionModal
         show={showCheckOutModal}
         onClose={() => setShowCheckOutModal(false)}
@@ -224,7 +226,18 @@ const ScanEquipment = () => {
         equipment={equipment}
         handleClear={handleClear}
       />
-
+      <ReturnEquipmentModal
+        show={showReturnModal}
+        onClose={() => setShowReturnModal(false)}
+        equipment={equipment}
+        handleClear={handleClear}
+      />
+      <MarkAsLostModal
+        show={showMarkAsLostModal}
+        onClose={() => setShowMarkAsLostModal(false)}
+        equipment={equipment}
+        handleClear={handleClear}
+      />
       <MaintenanceActionModal
         show={showMaintenanceModal}
         onClose={() => setShowMaintenanceModal(false)}
@@ -233,13 +246,31 @@ const ScanEquipment = () => {
         setEquipment={setEquipment}
         handleClear={handleClear}
       />
-
       <MaintenanceAcceptedModal
         show={showMaintenanceAcceptedModal}
         onClose={() => setShowMaintenanceAcceptedModal(false)}
         equipment={equipment}
+        setEquipment={setEquipment}
+        handleClear={handleClear}
       />
-
+      <FinishRepairAndReturnModal
+        show={showFinishRepairModal}
+        onClose={() => setShowFinishRepairModal(false)}
+        equipment={equipment}
+        handleClear={handleClear}
+      />
+      <MaintenanceCancelledModal
+        show={showMaintenanceCancelledModal}
+        onClose={() => setShowMaintenanceCancelledModal(false)}
+        equipment={equipment}
+        handleClear={handleClear}
+      />
+      <RepairFailedReturnModal
+        show={showRepairFailedModal}
+        onClose={() => setShowRepairFailedModal(false)}
+        equipment={equipment}
+        handleClear={handleClear}
+      />
       {/* Search Input */}
       <Card className="p-3 text-center mb-3">
         <div className="d-flex">
@@ -273,7 +304,6 @@ const ScanEquipment = () => {
           </Button>
         </div>
       </Card>
-
       <div className="row d-flex flex-column-reverse flex-md-row">
         <div className="col-md-7 mt-2 mt-md-0">
           {/* Equipment Information */}
@@ -485,11 +515,7 @@ const ScanEquipment = () => {
                     variant="secondary"
                     size="sm"
                     className="text-white"
-                    onClick={() => {
-                      toast.warn("Mark as Lost clicked!", {
-                        position: "top-center",
-                      });
-                    }}
+                    onClick={() => setShowMarkAsLostModal(true)}
                   >
                     Mark as Lost
                   </Button>
@@ -511,11 +537,7 @@ const ScanEquipment = () => {
                     variant="danger"
                     size="sm"
                     className="text-white"
-                    onClick={() =>
-                      toast.error("Maintenance Cancelled & Return clicked!", {
-                        position: "top-center",
-                      })
-                    }
+                    onClick={() => setShowMaintenanceCancelledModal(true)}
                   >
                     Maintenance Cancelled & Return
                   </Button>
@@ -548,20 +570,13 @@ const ScanEquipment = () => {
                     Cancel Repair & Return Equipment
                   </Button>
                 </div>
-              ) : equipment.availability_status === "Being Repaired" ? (
+              ) : equipment.availability_status === "Being Maintained" ? (
                 <div className="d-flex flex-column gap-2 mt-2">
                   <Button
                     variant="success"
                     size="sm"
                     className="text-white"
-                    onClick={() =>
-                      toast.success(
-                        "Repair finished! Equipment returned successfully.",
-                        {
-                          position: "top-center",
-                        }
-                      )
-                    }
+                    onClick={() => setShowFinishRepairModal(true)}
                   >
                     Repair Finished & Return
                   </Button>
@@ -570,11 +585,7 @@ const ScanEquipment = () => {
                     variant="danger"
                     size="sm"
                     className="text-white"
-                    onClick={() =>
-                      toast.error("Repair failed! Equipment returned.", {
-                        position: "top-center",
-                      })
-                    }
+                    onClick={() => setShowRepairFailedModal(true)}
                   >
                     Repair Failed & Return
                   </Button>

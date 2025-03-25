@@ -1456,6 +1456,74 @@ app.post(
   }
 );
 
+// INSERT SCANNED EQUIPMENT ACTION - MARK EQUIPMENT AS LOST
+app.post("/equipments/:id/mark-lost", async (req, res) => {
+  const { id } = req.params;
+  const { lostReason } = req.body; 
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    const [lastTransaction] = await connection.execute(
+      `SELECT * FROM scanned_equipments_actions 
+       WHERE equipment_id = ? 
+       AND transaction_type = 'Check Out'
+       ORDER BY action_id DESC 
+       LIMIT 1`,
+      [id]
+    );
+
+    if (lastTransaction.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No recent 'Check Out' transaction found." });
+    }
+
+    const lastData = lastTransaction[0];
+    const reasonToStore = lostReason || "No reason provided.";
+
+    const date = new Date().toISOString().slice(0, 10);
+    const time = new Date().toTimeString().split(" ")[0];
+
+    await connection.execute(
+      `INSERT INTO scanned_equipments_actions 
+       (equipment_id, lab_id, user_id, client_id, tracking_code, reason, date, time, status, transaction_type, notes) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        lastData.equipment_id,
+        lastData.lab_id,
+        lastData.user_id,
+        lastData.client_id,
+        lastData.tracking_code,
+        reasonToStore, 
+        date,
+        time,
+        "Lost",
+        "Equipment Lost",
+        reasonToStore,
+      ]
+    );
+
+    await connection.execute(
+      "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
+      ["Lost", id]
+    );
+
+    res.status(201).json({
+      message: "Equipment marked as lost.",
+      date,
+      time,
+      lostReason: reasonToStore,
+    });
+  } catch (err) {
+    console.error("Error marking equipment as lost:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 // UPDATE EQUIPMENT STATUS
 app.put("/equipments/:id/status", async (req, res) => {
   const { id } = req.params;
@@ -1526,7 +1594,7 @@ app.get("/scanned-equipment-actions/last/:equipment_id", async (req, res) => {
        AND (
          sea.transaction_type = 'Check Out' 
          OR sea.transaction_type = 'Maintenance' 
-         OR sea.transaction_type = 'Being Repaired'
+         OR sea.transaction_type = 'Being Maintained'
        )
        
        AND NOT EXISTS (
@@ -1610,12 +1678,19 @@ app.get("/scanned-equipment-actions/:tracking_code", async (req, res) => {
               u.first_name AS user_first_name, u.middle_name AS user_middle_name, 
               u.last_name AS user_last_name, u.phone AS user_phone, 
               u.email AS user_email, u.user_type,
-              sea.tracking_code, sea.date, sea.reason, sea.transaction_type, sea.status
+
+              t.name AS technician_name, 
+              t.contact_number AS technician_contact_number, 
+              t.shop_name AS technician_shop_name, 
+              t.shop_address AS technician_shop_address
+
        FROM scanned_equipments_actions sea
        LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
        LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
        LEFT JOIN clients c ON sea.client_id = c.client_id
        LEFT JOIN users u ON sea.user_id = u.user_id
+       LEFT JOIN technicians t ON sea.technician_id = t.technician_id
+
        WHERE sea.tracking_code = ?
        LIMIT 1`,
       [tracking_code]
@@ -1648,6 +1723,7 @@ app.get(
         `SELECT sea.tracking_code, 
                 CONCAT(sea.date, 'T', sea.time) AS datetime, 
                 sea.reason, sea.transaction_type, 
+                sea.notes,
                 sea.lab_id, sea.user_id, sea.technician_id,
                 u.first_name AS user_first_name, u.last_name AS user_last_name, u.user_type, 
                 c.first_name AS client_first_name, c.last_name AS client_last_name, 
@@ -1726,8 +1802,63 @@ app.get(
             },
             {
               ...common,
-              event: "Equipment is Being Repaired",
+              event: "Equipment is Being Maintained",
               details: `${entry.equipment_name} is now under maintenance.`,
+            },
+          ];
+        } else if (entry.transaction_type === "Repair Finished & Returned") {
+          return [
+            {
+              ...common,
+              event: "Repair Completed & Equipment Returned",
+              details: `Technician: ${
+                entry.technician_name || "N/A"
+              } - Contact: ${
+                entry.technician_contact_number || "N/A"
+              } - Shop: ${entry.technician_shop_name || "N/A"}`,
+            },
+            {
+              ...common,
+              event: "Equipment Returned to Laboratory",
+              details: `Returned to ${entry.lab_name} (Lab ${entry.lab_number})`,
+            },
+            {
+              ...common,
+              event: "Repair Notes",
+              details: entry.notes || "No additional notes provided.",
+            },
+          ];
+        } else if (
+          entry.transaction_type === "Maintenance Cancelled & Returned"
+        ) {
+          return [
+            {
+              ...common,
+              event: "Maintenance Cancelled",
+              details: `Cancelled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
+            },
+            {
+              ...common,
+              event: "Cancellation Reason",
+              details: entry.notes || "No reason provided.",
+            },
+            {
+              ...common,
+              event: "Equipment Returned to Laboratory",
+              details: `Returned to ${entry.lab_name} (Lab ${entry.lab_number})`,
+            },
+          ];
+        } else if (entry.transaction_type === "Repair Failed & Returned") {
+          return [
+            {
+              ...common,
+              event: "Repair Attempt Failed",
+              details: `Reason: ${entry.reason || "No reason provided"}`,
+            },
+            {
+              ...common,
+              event: "Equipment Returned to Laboratory",
+              details: `Returned to ${entry.lab_name} (Lab ${entry.lab_number})`,
             },
           ];
         } else {
@@ -1919,7 +2050,7 @@ app.post("/maintenance/ongoing-repair", async (req, res) => {
 
     await connection.execute(
       "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
-      ["Being Repaired", equipment_id]
+      ["Being Maintained", equipment_id]
     );
 
     res.status(201).json({
@@ -1931,6 +2062,218 @@ app.post("/maintenance/ongoing-repair", async (req, res) => {
     });
   } catch (err) {
     console.error("Error logging maintenance confirmation:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// INSERT SCAN MAINTENANCE ACTION - CANCEL MAINTENANCE & RETURN EQUIPMENT
+app.post("/maintenance/cancel-return", async (req, res) => {
+  const { equipment_id, cancel_reason } = req.body;
+
+  if (!equipment_id || !cancel_reason) {
+    return res
+      .status(400)
+      .json({ message: "Equipment ID and cancellation reason are required." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [lastTransaction] = await connection.execute(
+      `SELECT * FROM scanned_equipments_actions 
+       WHERE equipment_id = ? 
+       AND (transaction_type = 'Maintenance' OR transaction_type = 'Maintenance Accepted')
+       ORDER BY action_id DESC LIMIT 1`,
+      [equipment_id]
+    );
+
+    if (lastTransaction.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No active maintenance found for this equipment." });
+    }
+
+    const lastData = lastTransaction[0];
+    const date = new Date().toISOString().slice(0, 10);
+    const time = new Date().toTimeString().split(" ")[0];
+
+    await connection.execute(
+      `INSERT INTO scanned_equipments_actions 
+       (equipment_id, lab_id, user_id, technician_id, tracking_code, reason, date, time, status, transaction_type, notes) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+
+      [
+        lastData.equipment_id,
+        lastData.lab_id,
+        lastData.user_id,
+        lastData.technician_id,
+        lastData.tracking_code,
+        lastData.reason,
+        date,
+        time,
+        "Cancelled & Returned",
+        "Maintenance Cancelled & Returned",
+        cancel_reason,
+      ]
+    );
+
+    await connection.execute(
+      "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
+      ["Available", equipment_id]
+    );
+
+    res.status(201).json({
+      message: "Maintenance process cancelled and equipment returned.",
+      date,
+      time,
+      cancel_reason,
+    });
+  } catch (err) {
+    console.error("Error cancelling maintenance:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// INSERT SCAN MAINTENANCE ACTION - FINISH REPAIR
+app.post("/maintenance/finish-repair", async (req, res) => {
+  const { equipment_id, return_notes } = req.body;
+
+  if (!equipment_id || !return_notes) {
+    return res
+      .status(400)
+      .json({ message: "Equipment ID and return notes are required." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [lastTransaction] = await connection.execute(
+      `SELECT * FROM scanned_equipments_actions 
+       WHERE equipment_id = ? 
+       AND transaction_type = 'Maintenance Accepted'
+       ORDER BY action_id DESC LIMIT 1`,
+      [equipment_id]
+    );
+
+    if (lastTransaction.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No active maintenance confirmation found." });
+    }
+
+    const lastData = lastTransaction[0];
+    const date = new Date().toISOString().slice(0, 10);
+    const time = new Date().toTimeString().split(" ")[0];
+
+    await connection.execute(
+      `INSERT INTO scanned_equipments_actions 
+       (equipment_id, lab_id, user_id, technician_id, tracking_code, reason, date, time, status, transaction_type, notes) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        lastData.equipment_id,
+        lastData.lab_id,
+        lastData.user_id,
+        lastData.technician_id,
+        lastData.tracking_code,
+        lastData.reason,
+        date,
+        time,
+        "Returned",
+        "Repair Finished & Returned",
+        return_notes,
+      ]
+    );
+
+    await connection.execute(
+      "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
+      ["Available", equipment_id]
+    );
+
+    res.status(201).json({
+      message: "Equipment successfully returned with notes.",
+      date,
+      time,
+      return_notes,
+    });
+  } catch (err) {
+    console.error("Error finishing repair and returning equipment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// INSERT SCAN MAINTENANCE ACTION - REPAIR FAILED & RETURN EQUIPMENT
+app.post("/maintenance/repair-failed-return", async (req, res) => {
+  const { equipment_id, failure_reason } = req.body;
+
+  if (!equipment_id || !failure_reason) {
+    return res
+      .status(400)
+      .json({ message: "Equipment ID and failure reason are required." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [lastTransaction] = await connection.execute(
+      `SELECT * FROM scanned_equipments_actions 
+       WHERE equipment_id = ? 
+       AND transaction_type = 'Maintenance Accepted' 
+       ORDER BY action_id DESC LIMIT 1`,
+      [equipment_id]
+    );
+
+    if (lastTransaction.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No ongoing maintenance found for this equipment." });
+    }
+
+    const lastData = lastTransaction[0];
+    const date = new Date().toISOString().slice(0, 10);
+    const time = new Date().toTimeString().split(" ")[0];
+
+    await connection.execute(
+      `INSERT INTO scanned_equipments_actions 
+       (equipment_id, lab_id, user_id, technician_id, tracking_code, reason, date, time, status, transaction_type, notes) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+
+      [
+        lastData.equipment_id,
+        lastData.lab_id,
+        lastData.user_id,
+        lastData.technician_id,
+        lastData.tracking_code,
+        failure_reason,
+        date,
+        time,
+        "Repair Failed & Returned",
+        "Repair Failed & Returned",
+        failure_reason,
+      ]
+    );
+
+    await connection.execute(
+      "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
+      ["Available", equipment_id]
+    );
+
+    res.status(201).json({
+      message: "Repair process failed, and equipment returned.",
+      date,
+      time,
+      failure_reason,
+    });
+  } catch (err) {
+    console.error("Error handling repair failure:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
