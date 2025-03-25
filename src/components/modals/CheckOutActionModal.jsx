@@ -41,7 +41,7 @@ const CheckOutActionModal = ({
       toast.warn("Enter at least 2 characters to search.");
       return;
     }
-  
+
     try {
       setLoading(true);
       const response = await axios.get(
@@ -50,7 +50,7 @@ const CheckOutActionModal = ({
           params: { query: searchQuery },
         }
       );
-  
+
       setFilteredClients(response.data.clients || []);
       setShowDropdown(response.data.clients.length > 0);
     } catch (error) {
@@ -60,7 +60,7 @@ const CheckOutActionModal = ({
     } finally {
       setLoading(false);
     }
-  };  
+  };
 
   const handleSelectClient = (client) => {
     setClientData({ ...client, client_id: client.client_id });
@@ -175,6 +175,7 @@ const CheckOutActionModal = ({
           tracking_code: trackingCode,
           reason: actionReason,
           date: new Date().toISOString().slice(0, 10),
+          time: new Date().toTimeString().split(" ")[0],
           status,
         }
       );
@@ -304,7 +305,7 @@ const CheckOutActionModal = ({
                       <Button
                         variant="primary"
                         size="sm"
-                        onClick={handleSearchClick} 
+                        onClick={handleSearchClick}
                       >
                         Search
                       </Button>

@@ -9,6 +9,8 @@ import beepSound from "../../assets/beep.mp3";
 import ImageViewerModal from "../modals/ImageViewerModal";
 import CheckOutActionModal from "../modals/CheckOutActionModal";
 import ReturnEquipmentModal from "../modals/ReturnEquipmentModal";
+import MaintenanceActionModal from "../modals/MaintenanceActionModal";
+import MaintenanceAcceptedModal from "../modals/MaintenanceAcceptedModal";
 
 const ScanEquipment = () => {
   const [scanResult, setScanResult] = useState(null);
@@ -29,7 +31,10 @@ const ScanEquipment = () => {
 
   const [showReturnModal, setShowReturnModal] = useState(false);
 
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+
+  const [showMaintenanceAcceptedModal, setShowMaintenanceAcceptedModal] =
+    useState(false);
 
   useEffect(() => {
     const updateScannerSize = () => {
@@ -58,24 +63,11 @@ const ScanEquipment = () => {
     "Borrowed by Student - Temporarily loaned to a student for academic purposes.",
   ];
 
-  const markEquipmentActions = [
-    "Mark as Damaged - Equipment is not functional and needs repair.",
-    "Mark as Missing - Equipment is lost or unaccounted for.",
-    "Mark as Defective - Equipment has a defect but is still operational.",
-    "Mark as Under Observation - Equipment is being monitored for potential issues.",
-    "Mark as Inactive - Equipment is no longer in active use but remains in the inventory.",
-    "Mark as Reserved - Equipment is set aside for specific use.",
-    "Mark as For Disposal - Equipment is outdated or beyond repair and will be removed.",
-  ];
-
   const maintenanceActions = [
-    "Scheduled Maintenance - Routine maintenance for upkeep.",
-    "Urgent Repair - Equipment needs immediate fixing.",
+    "For Repair - Equipment needs immediate fixing or parts replacement.",
     "Software Update - Updating system software or firmware.",
     "Reformat & Reinstall - Reinstalling OS or applications.",
-    "Hardware Replacement - Components need to be replaced.",
     "Cleaning & Dusting - General maintenance for longevity.",
-    "Inspection & Testing - Checking for potential issues.",
   ];
 
   const handleActionClick = (action) => {
@@ -84,6 +76,7 @@ const ScanEquipment = () => {
     } else {
       setSelectedAction(action);
       setShowCheckOutModal(false);
+      setShowMaintenanceModal(false);
     }
   };
 
@@ -230,6 +223,21 @@ const ScanEquipment = () => {
         actionReason={actionReason}
         equipment={equipment}
         handleClear={handleClear}
+      />
+
+      <MaintenanceActionModal
+        show={showMaintenanceModal}
+        onClose={() => setShowMaintenanceModal(false)}
+        actionReason={actionReason}
+        equipment={equipment}
+        setEquipment={setEquipment}
+        handleClear={handleClear}
+      />
+
+      <MaintenanceAcceptedModal
+        show={showMaintenanceAcceptedModal}
+        onClose={() => setShowMaintenanceAcceptedModal(false)}
+        equipment={equipment}
       />
 
       {/* Search Input */}
@@ -486,19 +494,94 @@ const ScanEquipment = () => {
                     Mark as Lost
                   </Button>
                 </div>
+              ) : equipment.availability_status === "Maintenance" ? (
+                <div className="d-flex flex-column gap-2 mt-2">
+                  {/* Repair Accepted Button */}
+                  <Button
+                    variant="warning"
+                    size="sm"
+                    className="text-white"
+                    onClick={() => setShowMaintenanceAcceptedModal(true)}
+                  >
+                    Maintenance Accepted
+                  </Button>
+
+                  {/* Cancel Repair & Return Equipment Button */}
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="text-white"
+                    onClick={() =>
+                      toast.error("Maintenance Cancelled & Return clicked!", {
+                        position: "top-center",
+                      })
+                    }
+                  >
+                    Maintenance Cancelled & Return
+                  </Button>
+                </div>
+              ) : equipment.availability_status === "Maintenance" ? (
+                <div className="d-flex flex-column gap-2 mt-2">
+                  <Button
+                    variant="warning"
+                    size="sm"
+                    className="text-white"
+                    onClick={() =>
+                      toast.success("Repair process accepted by technician!", {
+                        position: "top-center",
+                      })
+                    }
+                  >
+                    Accept Repair
+                  </Button>
+
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="text-white"
+                    onClick={() =>
+                      toast.error("Cancel Repair & Return Equipment clicked!", {
+                        position: "top-center",
+                      })
+                    }
+                  >
+                    Cancel Repair & Return Equipment
+                  </Button>
+                </div>
+              ) : equipment.availability_status === "Being Repaired" ? (
+                <div className="d-flex flex-column gap-2 mt-2">
+                  <Button
+                    variant="success"
+                    size="sm"
+                    className="text-white"
+                    onClick={() =>
+                      toast.success(
+                        "Repair finished! Equipment returned successfully.",
+                        {
+                          position: "top-center",
+                        }
+                      )
+                    }
+                  >
+                    Repair Finished & Return
+                  </Button>
+
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="text-white"
+                    onClick={() =>
+                      toast.error("Repair failed! Equipment returned.", {
+                        position: "top-center",
+                      })
+                    }
+                  >
+                    Repair Failed & Return
+                  </Button>
+                </div>
               ) : (
                 <>
                   <div className="d-flex flex-column gap-2 mt-2">
-                    {/* Mark Equipment Button */}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="text-white"
-                      onClick={() => handleActionClick("Mark Equipment")}
-                    >
-                      Mark Equipment
-                    </Button>
-
                     {/* Check Out Button */}
                     <Button
                       variant="success"
@@ -517,20 +600,6 @@ const ScanEquipment = () => {
                       onClick={() => handleActionClick("Maintenance")}
                     >
                       Maintenance
-                    </Button>
-
-                    {/* Transfer Equipment Button */}
-                    <Button
-                      variant="warning"
-                      size="sm"
-                      className="text-dark"
-                      onClick={() => {
-                        toast.info("Transfer Equipment clicked!", {
-                          position: "top-center",
-                        });
-                      }}
-                    >
-                      Transfer Equipment
                     </Button>
                   </div>
 
@@ -582,20 +651,15 @@ const ScanEquipment = () => {
                             </Dropdown.Item>
                           ))}
 
-                        {/* Maintenance - Show Toast Message */}
+                        {/* Maintenance - Show Modal */}
                         {selectedAction === "Maintenance" &&
                           maintenanceActions.map((action, index) => (
                             <Dropdown.Item
                               key={index}
-                              onClick={(e) => {
-                                e.preventDefault();
+                              onClick={() => {
+                                setActionReason(action.split(" - ")[0]);
                                 setSelectedAction(null);
-                                toast.info(
-                                  `Action Selected: ${action.split(" - ")[0]}`,
-                                  {
-                                    position: "top-center",
-                                  }
-                                );
+                                setShowMaintenanceModal(true);
                               }}
                             >
                               {action.split(" - ")[0]}

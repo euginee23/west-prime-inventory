@@ -61,6 +61,7 @@ const ReturnEquipmentModal = ({ show, onClose, equipment, handleClear }) => {
           lab_id: equipment.laboratory?.lab_id || null,
           user_id: localStorage.getItem("user_id"),
           date: new Date().toISOString().slice(0, 10),
+          time: new Date().toTimeString().split(" ")[0],
         }
       );
 

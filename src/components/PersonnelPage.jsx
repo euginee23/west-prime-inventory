@@ -5,6 +5,8 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 import { getLoggedInUser, logout } from "../utils/auth";
 import ProfileSettings from "./common_components/ProfileSettings";
 import Equipments from "./common_components/Equipments";
+import ScanEquipment from "./admin_components/ScanEquipment";
+import Track from "./common_components/Track";
 
 export default function PersonnelPage() {
   const [activeSection, setActiveSection] = useState("scan");
@@ -126,16 +128,11 @@ export default function PersonnelPage() {
           overflowY: "auto",
         }}
       >
-        {activeSection === "scan" && (
-          <div>Scan QR codes for quick item tracking.</div>
-        )}
-        {activeSection === "track" && (
-          <div>Track equipment and personnel activities.</div>
-        )}
+        {activeSection === "scan" && <ScanEquipment />}
+        {activeSection === "track" && <Track />}
         {activeSection === "equipments" && <Equipments />}
-        
         {activeSection === "reports" && (
-          <div>View reports assigned to you.</div>
+          <div>You can generate reports here.</div>
         )}
         {activeSection === "profile-settings" && <ProfileSettings />}
       </div>

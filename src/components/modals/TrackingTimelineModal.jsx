@@ -28,6 +28,14 @@ const TrackingTimelineModal = ({ trackingCode }) => {
     }
   };
 
+  const formatDateTime = (isoString) => {
+    const date = new Date(isoString);
+    return new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(date);
+  };
+
   return (
     <div style={styles.timelineContainer}>
       {loading ? (
@@ -55,8 +63,9 @@ const TrackingTimelineModal = ({ trackingCode }) => {
               {/* Date & Content Box */}
               <div style={styles.timelineContent}>
                 <div style={styles.timelineDate}>
-                  {new Date(action.date).toLocaleDateString()}
+                  {formatDateTime(action.datetime)}
                 </div>
+
                 <div style={styles.timelineText}>
                   <strong>{action.event}</strong> - {action.details}
                 </div>
@@ -101,7 +110,7 @@ const styles = {
   },
   timelineLine: {
     position: "absolute",
-    left: "18px", 
+    left: "18px",
     top: "25px",
     width: "3px",
     backgroundColor: "#007bff",

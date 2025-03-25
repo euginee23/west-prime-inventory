@@ -60,10 +60,8 @@ export default function Equipments() {
 
   const operationalStatusOptions = [
     "Operational",
-    "Needs Repair",
-    "For Disposal",
-    "Under Maintenance",
-    "Decommissioned",
+    "Defective",
+    "Damaged",
   ];
 
   const [isEditing, setIsEditing] = useState(false);

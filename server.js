@@ -23,7 +23,7 @@ const upload = multer({
 
 // JWT_SECRET DEFINITION
 if (!JWT_SECRET) {
-  console.error("❌ JWT_SECRET is not defined in the environment variables.");
+  console.error("JWT_SECRET is not defined in the environment variables.");
   process.exit(1);
 }
 
@@ -45,7 +45,7 @@ async function testDBConnection() {
     console.log("✅ Connected to MySQL Database");
     connection.release();
   } catch (err) {
-    console.error("❌ MySQL Connection Failed:", err.message);
+    console.error("MySQL Connection Failed:", err.message);
     process.exit(1);
   }
 }
@@ -57,7 +57,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 app.use((err, req, res, next) => {
-  console.error("❌ Internal Server Error:", err);
+  console.error("Internal Server Error:", err);
   res.status(500).json({ message: "Internal server error" });
 });
 
@@ -66,14 +66,14 @@ app.get("/", async (req, res) => {
   try {
     connection = await db.getConnection();
     res.status(200).json({
-      message: "✅ Server is working!",
-      database: "✅ Connected to database!",
+      message: "Server is working!",
+      database: "Connected to database!",
     });
   } catch (err) {
-    console.error("❌ Error testing database connection:", err.message);
+    console.error("Error testing database connection:", err.message);
     res.status(500).json({
-      message: "✅ Server is working!",
-      database: "❌ Database connection failed!",
+      message: "Server is working!",
+      database: "Database connection failed!",
       error: err.message,
     });
   } finally {
@@ -125,7 +125,7 @@ app.post("/login", async (req, res) => {
       last_name: user.last_name,
     });
   } catch (err) {
-    console.error("❌ Database Error:", err);
+    console.error("Database Error:", err);
     res.status(500).json({ message: "Database error", error: err.message });
   } finally {
     if (connection) connection.release();
@@ -153,7 +153,7 @@ app.get("/user", authenticateToken, async (req, res) => {
       res.status(404).json({ message: "User not found" });
     }
   } catch (err) {
-    console.error("❌ Database Error:", err);
+    console.error("Database Error:", err);
     res.status(500).json({ message: "Database error", error: err.message });
   } finally {
     if (connection) connection.release();
@@ -189,7 +189,7 @@ app.get("/user/profile", authenticateToken, async (req, res) => {
       res.status(404).json({ message: "User not found" });
     }
   } catch (err) {
-    console.error("❌ Database Error:", err);
+    console.error("Database Error:", err);
     res
       .status(500)
       .json({ message: "Internal Server Error", error: err.message });
@@ -264,7 +264,7 @@ app.put("/user/update-credentials", authenticateToken, async (req, res) => {
 
     res.status(200).json({ message: "Profile updated successfully." });
   } catch (err) {
-    console.error("❌ Error updating credentials:", err);
+    console.error("Error updating credentials:", err);
     res
       .status(500)
       .json({ message: "Internal server error", error: err.message });
@@ -297,7 +297,7 @@ app.put("/user/update-personal", authenticateToken, async (req, res) => {
       .status(200)
       .json({ message: "Personal information updated successfully." });
   } catch (err) {
-    console.error("❌ Error updating personal information:", err);
+    console.error("Error updating personal information:", err);
     res
       .status(500)
       .json({ message: "Internal server error", error: err.message });
@@ -328,7 +328,7 @@ app.get("/laboratories", async (req, res) => {
       data: results,
     });
   } catch (err) {
-    console.error("❌ Error fetching laboratories:", err);
+    console.error("Error fetching laboratories:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -394,7 +394,7 @@ app.delete("/laboratories/:id", async (req, res) => {
 
     res.status(200).json({ message: "✅ Laboratory deleted successfully." });
   } catch (err) {
-    console.error("❌ Error deleting laboratory:", err);
+    console.error("Error deleting laboratory:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -474,7 +474,7 @@ app.post("/personnels", async (req, res) => {
 
     res.status(201).json({ message: "Personnel added successfully." });
   } catch (err) {
-    console.error("❌ Error adding personnel:", err);
+    console.error("Error adding personnel:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -504,7 +504,7 @@ app.put("/personnels/:id", async (req, res) => {
 
     res.status(200).json({ message: "Personnel updated successfully." });
   } catch (err) {
-    console.error("❌ Error updating personnel:", err);
+    console.error("Error updating personnel:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -532,7 +532,7 @@ app.delete("/personnels/:id", async (req, res) => {
 
     res.status(200).json({ message: "Personnel removed successfully." });
   } catch (err) {
-    console.error("❌ Error removing personnel:", err);
+    console.error("Error removing personnel:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -547,7 +547,7 @@ app.get("/equipments", authenticateToken, async (req, res) => {
 
     const userId = req.user.id;
     const userRole = req.user.role;
-    
+
     let query = `
       SELECT 
         e.*, 
@@ -577,7 +577,9 @@ app.get("/equipments", authenticateToken, async (req, res) => {
       );
 
       if (designation.length === 0) {
-        return res.status(403).json({ message: "No active lab assignment found." });
+        return res
+          .status(403)
+          .json({ message: "No active lab assignment found." });
       }
 
       const assignedLabId = designation[0].lab_id;
@@ -639,13 +641,12 @@ app.get("/equipments", authenticateToken, async (req, res) => {
 
     res.status(200).json(equipments);
   } catch (err) {
-    console.error("❌ Error fetching equipments:", err);
+    console.error("Error fetching equipments:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
   }
 });
-
 
 // GET EQUIPMENT BY ID
 app.get("/equipments/:equipment_id", async (req, res) => {
@@ -705,7 +706,7 @@ app.get("/equipments/:equipment_id", async (req, res) => {
 
     res.json(responseData);
   } catch (error) {
-    console.error("❌ Error fetching equipment:", error);
+    console.error("Error fetching equipment:", error);
     res.status(500).json({ error: "Server error" });
   } finally {
     if (connection) connection.release();
@@ -771,7 +772,7 @@ app.get("/equipments/search/:number", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Error searching equipment:", error);
+    console.error("Error searching equipment:", error);
     res.status(500).json({ error: "Server error" });
   } finally {
     if (connection) connection.release();
@@ -819,7 +820,9 @@ app.post("/equipments", upload.array("images", 3), async (req, res) => {
     );
 
     if (existingEquipment[0].count > 0) {
-      return res.status(409).json({ message: "Equipment number already exists." });
+      return res
+        .status(409)
+        .json({ message: "Equipment number already exists." });
     }
 
     const parsedUserId = parseInt(user_id, 10);
@@ -862,7 +865,7 @@ app.post("/equipments", upload.array("images", 3), async (req, res) => {
 
     res.status(201).json({ message: "Equipment added successfully." });
   } catch (err) {
-    console.error("❌ Error adding equipment:", err);
+    console.error("Error adding equipment:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -896,9 +899,9 @@ app.delete("/equipments/:id", async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "✅ Equipment and its images removed successfully." });
+      .json({ message: "Equipment and its images removed successfully." });
   } catch (err) {
-    console.error("❌ Error deleting equipment:", err);
+    console.error("Error deleting equipment:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1025,7 +1028,7 @@ app.get("/clients/search", async (req, res) => {
 
     res.status(200).json({ clients });
   } catch (error) {
-    console.error("❌ Error searching clients:", error);
+    console.error("Error searching clients:", error);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1050,9 +1053,10 @@ app.get("/personnel_designations/:user_id", async (req, res) => {
     );
 
     if (results.length === 0) {
-      return res
-        .status(200)
-        .json({ message: "No active laboratory assignment found.", data: null });
+      return res.status(200).json({
+        message: "No active laboratory assignment found.",
+        data: null,
+      });
     }
 
     res.status(200).json({
@@ -1060,7 +1064,7 @@ app.get("/personnel_designations/:user_id", async (req, res) => {
       data: results[0],
     });
   } catch (err) {
-    console.error("❌ Error fetching personnel lab:", err);
+    console.error("Error fetching personnel lab:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1108,7 +1112,7 @@ app.get("/personnel_designations/laboratory/:lab_id", async (req, res) => {
       data: personnelList,
     });
   } catch (err) {
-    console.error("❌ Error fetching assigned personnel:", err);
+    console.error("Error fetching assigned personnel:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1137,7 +1141,7 @@ app.post("/personnel_designations", async (req, res) => {
 
     res.status(201).json({ message: "Laboratory assigned successfully." });
   } catch (err) {
-    console.error("❌ Error assigning laboratory:", err);
+    console.error("Error assigning laboratory:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1195,7 +1199,7 @@ app.post("/personnel_designations/reassign", async (req, res) => {
 
     res.status(201).json({ message: "Laboratory reassigned successfully." });
   } catch (err) {
-    console.error("❌ Error reassigning laboratory:", err);
+    console.error("Error reassigning laboratory:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1237,7 +1241,7 @@ app.post("/personnel_designations/remove", async (req, res) => {
       .status(201)
       .json({ message: "Personnel assignment removed successfully." });
   } catch (err) {
-    console.error("❌ Error removing personnel assignment:", err);
+    console.error("Error removing personnel assignment:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1255,7 +1259,7 @@ app.get("/personnel_designations/history/:user_id", async (req, res) => {
     const [results] = await connection.execute(
       `SELECT pd.*, 
               CONCAT(l.lab_name, ' (#', l.lab_number, ')') AS lab_details,
-              DATE_FORMAT(pd.created_at, '%Y-%m-%d') AS assign_date  -- ✅ Properly format date
+              DATE_FORMAT(pd.created_at, '%Y-%m-%d') AS assign_date 
        FROM personnel_designations pd
        LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
        WHERE pd.user_id = ? 
@@ -1272,7 +1276,7 @@ app.get("/personnel_designations/history/:user_id", async (req, res) => {
   }
 });
 
-// SCANNED EQUIPMENT ACTION - CHECK OUT
+// INSERT SCANNED EQUIPMENT ACTION - CHECK OUT
 app.post("/scanned-equipment-actions", async (req, res) => {
   const {
     equipment_id,
@@ -1282,6 +1286,7 @@ app.post("/scanned-equipment-actions", async (req, res) => {
     tracking_code,
     reason,
     date,
+    time,
     status,
   } = req.body;
 
@@ -1293,6 +1298,7 @@ app.post("/scanned-equipment-actions", async (req, res) => {
     !tracking_code ||
     !reason ||
     !date ||
+    !time ||
     !status
   ) {
     return res.status(400).json({ message: "All fields are required." });
@@ -1313,15 +1319,17 @@ app.post("/scanned-equipment-actions", async (req, res) => {
 
     if (existingClient.length > 0) {
       clientId = existingClient[0].client_id;
+
       await connection.execute(
         "UPDATE clients SET client_type = ? WHERE client_id = ?",
         [client.client_type, clientId]
       );
     } else {
       const [newClient] = await connection.execute(
-        `INSERT INTO clients (first_name, middle_name, last_name, 
-          contact_number, email, address, client_type) 
-         VALUES (?, ?, ?, ?, ?, ?, ?);`,
+        `INSERT INTO clients (
+          first_name, middle_name, last_name, 
+          contact_number, email, address, client_type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?);`,
         [
           client.first_name,
           client.middle_name || null,
@@ -1338,8 +1346,8 @@ app.post("/scanned-equipment-actions", async (req, res) => {
     await connection.execute(
       `INSERT INTO scanned_equipments_actions 
        (equipment_id, lab_id, user_id, client_id, tracking_code, 
-       reason, date, status, transaction_type) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        reason, date, time, status, transaction_type) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         equipment_id,
         lab_id,
@@ -1348,6 +1356,7 @@ app.post("/scanned-equipment-actions", async (req, res) => {
         tracking_code,
         reason,
         date,
+        time,
         status,
         "Check Out",
       ]
@@ -1368,17 +1377,18 @@ app.post("/scanned-equipment-actions", async (req, res) => {
   }
 });
 
-// SCANNED EQUIPMENT ACTION - RETURN
+// INSERT SCANNED EQUIPMENT ACTION - RETURN
 app.post(
   "/scanned-equipment-actions/return/:equipment_id",
   async (req, res) => {
     const { equipment_id } = req.params;
-    const { lab_id, user_id, date } = req.body;
+    const { lab_id, user_id, date, time } = req.body;
 
-    if (!lab_id || !user_id || !date) {
-      return res
-        .status(400)
-        .json({ message: "All required fields must be provided." });
+    if (!lab_id || !user_id || !date || !time) {
+      return res.status(400).json({
+        message:
+          "All required fields (lab_id, user_id, date, time) must be provided.",
+      });
     }
 
     let connection;
@@ -1410,8 +1420,8 @@ app.post(
 
       await connection.execute(
         `INSERT INTO scanned_equipments_actions 
-         (equipment_id, lab_id, user_id, client_id, tracking_code, reason, date, status, transaction_type) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+         (equipment_id, lab_id, user_id, client_id, tracking_code, reason, date, time, status, transaction_type) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         [
           equipment_id,
           lab_id,
@@ -1420,6 +1430,7 @@ app.post(
           lastAction.tracking_code,
           lastAction.reason,
           date,
+          time,
           "Returned",
           "Return Equipment",
         ]
@@ -1437,7 +1448,7 @@ app.post(
         status: "Returned",
       });
     } catch (err) {
-      console.error("❌ Error returning equipment:", err);
+      console.error("Error returning equipment:", err);
       res.status(500).json({ message: "Internal server error" });
     } finally {
       if (connection) connection.release();
@@ -1475,14 +1486,14 @@ app.put("/equipments/:id/status", async (req, res) => {
       .status(200)
       .json({ message: `Equipment status updated to '${status}'.` });
   } catch (err) {
-    console.error("❌ Error updating equipment status:", err);
+    console.error("Error updating equipment status:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
   }
 });
 
-// GET LAST SCANNED
+// GET LAST SCANNED EQUIPMENT TRANSACTION
 app.get("/scanned-equipment-actions/last/:equipment_id", async (req, res) => {
   const { equipment_id } = req.params;
 
@@ -1491,27 +1502,49 @@ app.get("/scanned-equipment-actions/last/:equipment_id", async (req, res) => {
     connection = await db.getConnection();
 
     const [lastTransaction] = await connection.execute(
-      `SELECT sea.*, c.first_name, c.middle_name, c.last_name, 
-              c.contact_number, c.email, c.address, c.client_type
+      `SELECT sea.*, 
+              c.first_name AS client_first_name, 
+              c.middle_name AS client_middle_name, 
+              c.last_name AS client_last_name, 
+              c.contact_number AS client_contact_number, 
+              c.email AS client_email, 
+              c.address AS client_address, 
+              c.client_type, 
+
+              t.name AS technician_name, 
+              t.contact_number AS technician_contact_number, 
+              t.shop_name AS technician_shop_name, 
+              t.shop_address AS technician_shop_address
+
        FROM scanned_equipments_actions sea
+       
        LEFT JOIN clients c ON sea.client_id = c.client_id
+       LEFT JOIN technicians t ON sea.technician_id = t.technician_id
+
        WHERE sea.equipment_id = ?
-       AND sea.transaction_type = 'Check Out'
+       
+       AND (
+         sea.transaction_type = 'Check Out' 
+         OR sea.transaction_type = 'Maintenance' 
+         OR sea.transaction_type = 'Being Repaired'
+       )
+       
        AND NOT EXISTS (
            SELECT 1 FROM scanned_equipments_actions sea2
            WHERE sea2.equipment_id = sea.equipment_id 
            AND sea2.transaction_type = 'Return Equipment' 
            AND sea2.tracking_code = sea.tracking_code
        )
+
        ORDER BY sea.action_id DESC
        LIMIT 1`,
       [equipment_id]
     );
 
     if (lastTransaction.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No valid Check Out transaction found." });
+      return res.status(404).json({
+        message: "No valid last transaction found for this equipment.",
+      });
     }
 
     res.status(200).json(lastTransaction[0]);
@@ -1551,7 +1584,7 @@ app.get("/scanned-equipment-actions", async (req, res) => {
 
     res.status(200).json(actions);
   } catch (err) {
-    console.error("❌ Error fetching latest transactions:", err);
+    console.error("Error fetching latest transactions:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1594,7 +1627,7 @@ app.get("/scanned-equipment-actions/:tracking_code", async (req, res) => {
 
     res.status(200).json(actions[0]);
   } catch (err) {
-    console.error("❌ Error fetching tracked equipment:", err);
+    console.error("Error fetching tracked equipment:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1612,19 +1645,23 @@ app.get(
       connection = await db.getConnection();
 
       const [history] = await connection.execute(
-        `SELECT sea.tracking_code, sea.date, sea.reason, sea.transaction_type, 
-              sea.lab_id, sea.user_id, 
-              u.first_name AS user_first_name, u.last_name AS user_last_name, u.user_type, 
-              c.first_name AS client_first_name, c.last_name AS client_last_name, 
-              l.lab_name, l.lab_number,
-              e.name AS equipment_name
-       FROM scanned_equipments_actions sea
-       LEFT JOIN users u ON sea.user_id = u.user_id
-       LEFT JOIN clients c ON sea.client_id = c.client_id
-       LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
-       LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
-       WHERE sea.tracking_code = ?
-       ORDER BY sea.date ASC`,
+        `SELECT sea.tracking_code, 
+                CONCAT(sea.date, 'T', sea.time) AS datetime, 
+                sea.reason, sea.transaction_type, 
+                sea.lab_id, sea.user_id, sea.technician_id,
+                u.first_name AS user_first_name, u.last_name AS user_last_name, u.user_type, 
+                c.first_name AS client_first_name, c.last_name AS client_last_name, 
+                l.lab_name, l.lab_number,
+                e.name AS equipment_name,
+                t.name AS technician_name, t.contact_number AS technician_contact_number, t.shop_name AS technician_shop_name
+         FROM scanned_equipments_actions sea
+         LEFT JOIN users u ON sea.user_id = u.user_id
+         LEFT JOIN clients c ON sea.client_id = c.client_id
+         LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
+         LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
+         LEFT JOIN technicians t ON sea.technician_id = t.technician_id
+         WHERE sea.tracking_code = ?
+         ORDER BY sea.date ASC, sea.time ASC`,
         [tracking_code]
       );
 
@@ -1632,49 +1669,273 @@ app.get(
         return res.status(404).json({ message: "No tracking history found." });
       }
 
-      let structuredHistory = [];
+      const structuredHistory = history.flatMap((entry) => {
+        const common = {
+          datetime: entry.datetime,
+        };
 
-      history.forEach((entry) => {
         if (entry.transaction_type === "Check Out") {
-          structuredHistory.push({
-            date: entry.date,
-            event: "Check Out Process",
-            details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
-          });
-          structuredHistory.push({
-            date: entry.date,
-            event: "Equipment Checked Out",
-            details: `Client: ${entry.client_first_name} ${entry.client_last_name} checked out ${entry.equipment_name} from ${entry.lab_name} (Lab ${entry.lab_number})`,
-          });
+          return [
+            {
+              ...common,
+              event: "Check Out Process",
+              details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
+            },
+            {
+              ...common,
+              event: "Equipment Checked Out",
+              details: `Client: ${entry.client_first_name} ${entry.client_last_name} checked out ${entry.equipment_name} from ${entry.lab_name} (Lab ${entry.lab_number})`,
+            },
+          ];
         } else if (entry.transaction_type === "Return Equipment") {
-          structuredHistory.push({
-            date: entry.date,
-            event: "Equipment Returned",
-            details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
-          });
-          structuredHistory.push({
-            date: entry.date,
-            event: "Returned at Laboratory",
-            details: `${entry.lab_name} - ${entry.lab_number}`,
-          });
+          return [
+            {
+              ...common,
+              event: "Equipment Returned",
+              details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type})`,
+            },
+            {
+              ...common,
+              event: "Returned at Laboratory",
+              details: `${entry.lab_name} - ${entry.lab_number}`,
+            },
+          ];
+        } else if (entry.transaction_type === "Maintenance") {
+          return [
+            {
+              ...common,
+              event: "Maintenance Release Process",
+              details: `Handled by ${entry.user_first_name} ${entry.user_last_name} (${entry.user_type}) - ${entry.reason}`,
+            },
+            {
+              ...common,
+              event: "Equipment Released for Maintenance",
+              details: `(Released from ${entry.lab_name} ${entry.lab_number})`,
+            },
+          ];
+        } else if (entry.transaction_type === "Maintenance Accepted") {
+          return [
+            {
+              ...common,
+              event: `Maintenance Accepted - ${entry.reason || "N/A"}`,
+              details: `Technician: ${
+                entry.technician_name || "N/A"
+              } - Contact: ${
+                entry.technician_contact_number || "N/A"
+              } - Shop: ${entry.technician_shop_name || "N/A"}`,
+            },
+            {
+              ...common,
+              event: "Equipment is Being Repaired",
+              details: `${entry.equipment_name} is now under maintenance.`,
+            },
+          ];
         } else {
-          structuredHistory.push({
-            date: entry.date,
-            event: entry.transaction_type,
-            details: entry.reason,
-          });
+          return [
+            {
+              ...common,
+              event: entry.transaction_type,
+              details: entry.reason,
+            },
+          ];
         }
       });
 
       res.status(200).json(structuredHistory);
     } catch (err) {
-      console.error("❌ Error fetching tracking history:", err);
+      console.error("Error fetching tracking history:", err);
       res.status(500).json({ message: "Internal server error" });
     } finally {
       if (connection) connection.release();
     }
   }
 );
+
+// INSERT SCAN MAINTENANCE ACTION - RELEASE
+app.post("/maintenance/release", async (req, res) => {
+  const { equipment_id, lab_id, user_id, reason, technician } = req.body;
+
+  if (!equipment_id || !lab_id || !user_id || !reason) {
+    return res.status(400).json({
+      message: "equipment_id, lab_id, user_id, and reason are required.",
+    });
+  }
+
+  const tracking_code = `MTN-${Date.now()}`;
+  const date = new Date().toISOString().slice(0, 10);
+  const time = new Date().toTimeString().split(" ")[0];
+  const status = "Released";
+  const transaction_type = "Maintenance";
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    let technician_id = null;
+
+    if (technician) {
+      const { technician_name, contact_number, shop_name, shop_address } =
+        technician;
+
+      const [existing] = await connection.execute(
+        `SELECT technician_id FROM technicians WHERE name = ? AND contact_number = ? AND shop_name = ?`,
+        [technician_name, contact_number, shop_name]
+      );
+
+      if (existing.length > 0) {
+        technician_id = existing[0].technician_id;
+      } else {
+        const [inserted] = await connection.execute(
+          `INSERT INTO technicians (name, contact_number, shop_name, shop_address)
+           VALUES (?, ?, ?, ?)`,
+          [technician_name, contact_number, shop_name, shop_address]
+        );
+        technician_id = inserted.insertId;
+      }
+    }
+
+    await connection.execute(
+      `INSERT INTO scanned_equipments_actions 
+       (equipment_id, lab_id, user_id, technician_id, tracking_code, reason, date, time, status, transaction_type) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        equipment_id,
+        lab_id,
+        user_id,
+        technician_id,
+        tracking_code,
+        reason,
+        date,
+        time,
+        status,
+        transaction_type,
+      ]
+    );
+
+    await connection.execute(
+      "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
+      ["Maintenance", equipment_id]
+    );
+
+    res.status(201).json({
+      message: "Maintenance action recorded successfully.",
+      tracking_code,
+      status,
+    });
+  } catch (err) {
+    console.error("Error logging maintenance action:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// TECHNICIAN SEARCH
+app.get("/technicians/search", async (req, res) => {
+  const { query } = req.query;
+
+  if (!query || query.length < 2) {
+    return res
+      .status(400)
+      .json({ message: "Query must be at least 2 characters long." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const searchQuery = `%${query}%`;
+
+    const [results] = await connection.execute(
+      `SELECT technician_id, name, contact_number, shop_name, shop_address
+       FROM technicians
+       WHERE name LIKE ? 
+          OR shop_name LIKE ? 
+          OR contact_number = ? 
+       LIMIT 10`,
+      [searchQuery, searchQuery, query]
+    );
+
+    res.json({ technicians: results });
+  } catch (err) {
+    console.error("Technician search error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// INSERT SCAN MAINTENANCE ACTION - MAINTENANCE CONFIRMATION
+app.post("/maintenance/ongoing-repair", async (req, res) => {
+  const { equipment_id } = req.body;
+
+  if (!equipment_id) {
+    return res.status(400).json({
+      message: "equipment_id is required.",
+    });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [lastTransaction] = await connection.execute(
+      `SELECT * FROM scanned_equipments_actions 
+       WHERE equipment_id = ? 
+       AND transaction_type = 'Maintenance'
+       ORDER BY action_id DESC LIMIT 1`,
+      [equipment_id]
+    );
+
+    if (lastTransaction.length === 0) {
+      return res.status(404).json({
+        message:
+          "No previous maintenance transaction found for this equipment.",
+      });
+    }
+
+    const lastData = lastTransaction[0];
+
+    const date = new Date().toISOString().slice(0, 10);
+    const time = new Date().toTimeString().split(" ")[0];
+
+    await connection.execute(
+      `INSERT INTO scanned_equipments_actions 
+       (equipment_id, lab_id, user_id, technician_id, tracking_code, reason, date, time, status, transaction_type) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        lastData.equipment_id,
+        lastData.lab_id,
+        lastData.user_id,
+        lastData.technician_id,
+        lastData.tracking_code,
+        lastData.reason,
+        date,
+        time,
+        "On-Going-Repair",
+        "Maintenance Accepted",
+      ]
+    );
+
+    await connection.execute(
+      "UPDATE equipments SET availability_status = ? WHERE equipment_id = ?",
+      ["Being Repaired", equipment_id]
+    );
+
+    res.status(201).json({
+      message: "Maintenance confirmation recorded successfully.",
+      tracking_code: lastData.tracking_code,
+      status: "On-Going-Repair",
+      date,
+      time,
+    });
+  } catch (err) {
+    console.error("Error logging maintenance confirmation:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
 
 // TOKEN VERIFICATION MIDDLEWARE
 function authenticateToken(req, res, next) {
