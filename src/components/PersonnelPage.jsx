@@ -5,8 +5,9 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 import { getLoggedInUser, logout } from "../utils/auth";
 import ProfileSettings from "./common_components/ProfileSettings";
 import Equipments from "./common_components/Equipments";
-import ScanEquipment from "./admin_components/ScanEquipment";
+import ScanEquipment from "./common_components/ScanEquipment";
 import Track from "./common_components/Track";
+import PersonnelReports from "./personnel_components/PersonnelReports";
 
 export default function PersonnelPage() {
   const [activeSection, setActiveSection] = useState("scan");
@@ -131,9 +132,7 @@ export default function PersonnelPage() {
         {activeSection === "scan" && <ScanEquipment />}
         {activeSection === "track" && <Track />}
         {activeSection === "equipments" && <Equipments />}
-        {activeSection === "reports" && (
-          <div>You can generate reports here.</div>
-        )}
+        {activeSection === "reports" && <PersonnelReports />}
         {activeSection === "profile-settings" && <ProfileSettings />}
       </div>
     </div>

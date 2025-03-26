@@ -17,6 +17,7 @@ export default function Equipments() {
   const [equipments, setEquipments] = useState([]);
   const [laboratories, setLaboratories] = useState([]);
   const [showReLoginModal, setShowReLoginModal] = useState(false);
+  const [equipmentHistory, setEquipmentHistory] = useState([]);
 
   const user = getLoggedInUser();
   const [formData, setFormData] = useState({
@@ -58,11 +59,7 @@ export default function Equipments() {
     "Logitech",
   ];
 
-  const operationalStatusOptions = [
-    "Operational",
-    "Defective",
-    "Damaged",
-  ];
+  const operationalStatusOptions = ["Operational", "Defective", "Damaged"];
 
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -114,6 +111,18 @@ export default function Equipments() {
     }
   };
 
+  const fetchEquipmentHistory = async (equipmentId) => {
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/equipments/${equipmentId}/history`
+      );
+      setEquipmentHistory(response.data);
+    } catch (error) {
+      console.error("Error fetching equipment history:", error);
+      setEquipmentHistory([]);
+    }
+  };
+
   const fetchLaboratories = async () => {
     try {
       const response = await axios.get(
@@ -162,6 +171,7 @@ export default function Equipments() {
         images: Array.isArray(equipment.images) ? equipment.images : [],
       });
       setShowViewModal(true);
+      fetchEquipmentHistory(equipment.equipment_id);
     }, 0);
   };
 
@@ -819,6 +829,7 @@ export default function Equipments() {
         onClose={() => setShowViewModal(false)}
         equipment={selectedEquipment}
         onSave={onUpdateEquipment}
+        equipmentHistory={equipmentHistory}
       />
     </div>
   );

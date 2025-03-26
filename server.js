@@ -713,6 +713,32 @@ app.get("/equipments/:equipment_id", async (req, res) => {
   }
 });
 
+// GET EQUIPMENT HISTORY
+app.get("/equipments/:equipment_id/history", async (req, res) => {
+  const { equipment_id } = req.params;
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [history] = await connection.execute(
+      `SELECT sea.date, sea.transaction_type AS action,
+              CONCAT(u.first_name, ' ', u.last_name) AS performed_by
+       FROM scanned_equipments_actions sea
+       LEFT JOIN users u ON sea.user_id = u.user_id
+       WHERE sea.equipment_id = ?
+       ORDER BY sea.date DESC, sea.time DESC`,
+      [equipment_id]
+    );
+
+    res.status(200).json(history);
+  } catch (err) {
+    console.error("Error fetching equipment history:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 // GET EQUIPMENT BY NUMBER
 app.get("/equipments/search/:number", async (req, res) => {
   const { number } = req.params;
@@ -1766,6 +1792,86 @@ app.get("/scanned-equipment-actions/:tracking_code", async (req, res) => {
     res.status(200).json(actions[0]);
   } catch (err) {
     console.error("Error fetching tracked equipment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET EQUIPMENT CURRENT STATE BY ID
+app.get("/equipment-state/:equipment_id", async (req, res) => {
+  const { equipment_id } = req.params;
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    const [result] = await connection.execute(
+      `SELECT 
+          e.equipment_id, e.name AS equipment_name, e.number, 
+          e.availability_status, e.operational_status,
+
+          /* Fetch latest action */
+          (SELECT sea.transaction_type 
+           FROM scanned_equipments_actions sea 
+           WHERE sea.equipment_id = e.equipment_id 
+           ORDER BY sea.date DESC, sea.time DESC 
+           LIMIT 1) AS latest_action,
+
+          /* Fetch latest reason */
+          (SELECT sea.reason 
+           FROM scanned_equipments_actions sea 
+           WHERE sea.equipment_id = e.equipment_id 
+           ORDER BY sea.date DESC, sea.time DESC 
+           LIMIT 1) AS latest_reason,
+
+          /* Fetch client details if In-Use */
+          (SELECT CONCAT(c.first_name, ' ', IFNULL(c.middle_name, ''), ' ', c.last_name)
+           FROM scanned_equipments_actions sea 
+           LEFT JOIN clients c ON sea.client_id = c.client_id
+           WHERE sea.equipment_id = e.equipment_id 
+           ORDER BY sea.date DESC, sea.time DESC 
+           LIMIT 1) AS client_name
+
+       FROM equipments e
+       WHERE e.equipment_id = ?`,
+      [equipment_id]
+    );
+
+    if (result.length === 0) {
+      return res.status(404).json({ message: "Equipment not found." });
+    }
+
+    const equipment = result[0];
+
+    let stateMessage = "Unknown status";
+
+    if (equipment.availability_status === "Available") {
+      stateMessage = "✅ Ready to be used.";
+    } else if (equipment.availability_status === "In-Use") {
+      stateMessage = `⏳ Equipment is being used. Reason: ${equipment.latest_reason || "No reason provided"} by Client: ${equipment.client_name || "Unknown"}`;
+    } else if (equipment.availability_status === "Maintenance") {
+      stateMessage = `🔧 Equipment is out for maintenance. Reason: ${equipment.latest_reason || "No reason provided"}`;
+    } else if (equipment.availability_status === "Being Maintained") {
+      stateMessage = `🛠️ Equipment is Being Maintained. Reason: ${equipment.latest_reason || "No reason provided"}`;
+    } else if (equipment.availability_status === "Lost") {
+      stateMessage = "⚠️ The equipment is Lost. Please check history and tracking.";
+    }
+
+    res.status(200).json({
+      equipment_id: equipment.equipment_id,
+      equipment_name: equipment.equipment_name,
+      equipment_number: equipment.number,
+      availability_status: equipment.availability_status,
+      operational_status: equipment.operational_status,
+      latest_action: equipment.latest_action,
+      latest_reason: equipment.latest_reason,
+      client_name: equipment.client_name,
+      state_message: stateMessage,
+    });
+
+  } catch (err) {
+    console.error("Error fetching equipment state:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();

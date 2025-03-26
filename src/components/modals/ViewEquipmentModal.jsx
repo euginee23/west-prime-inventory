@@ -7,7 +7,13 @@ import ImageUploadModal from "./ImageUploadModal";
 import { openCamera } from "../../utils/camera";
 import ImageViewerModal from "./ImageViewerModal";
 
-const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
+const ViewEquipmentModal = ({
+  show,
+  onClose,
+  equipment,
+  onSave,
+  equipmentHistory,
+}) => {
   if (!equipment) return null;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -25,6 +31,28 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
         ? equipment.images
         : [],
   });
+
+  const [equipmentState, setEquipmentState] = useState(null);
+
+  useEffect(() => {
+    if (show && equipment?.equipment_id) {
+      fetchEquipmentState(equipment.equipment_id);
+    }
+  }, [show, equipment]);
+
+  const fetchEquipmentState = async (equipmentId) => {
+    if (!equipmentId) return;
+
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/equipment-state/${equipmentId}`
+      );
+      setEquipmentState(response.data);
+    } catch (error) {
+      console.error("Error fetching equipment state:", error);
+      setEquipmentState(null);
+    }
+  };
 
   const handleImageClick = (index) => {
     setSelectedImageIndex(index);
@@ -92,7 +120,7 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
       toast.error("Error: Equipment data is missing.");
       return;
     }
-  
+
     const originalInfo = {
       name: equipment.name,
       number: equipment.number,
@@ -103,7 +131,7 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
       laboratory_id: equipment.laboratory?.lab_number || "",
       description: equipment.description,
     };
-  
+
     const newInfo = {
       name: editedEquipment.name,
       number: editedEquipment.number,
@@ -114,22 +142,22 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
       laboratory_id: editedEquipment.laboratory_id,
       description: editedEquipment.description,
     };
-  
+
     const infoChanged =
       JSON.stringify(originalInfo) !== JSON.stringify(newInfo);
     const imagesChanged =
       (editedEquipment.newImages && editedEquipment.newImages.length > 0) ||
       (editedEquipment.remove_images &&
         editedEquipment.remove_images.length > 0);
-  
+
     if (!infoChanged && !imagesChanged) {
       toast.info("No changes were made.");
       setIsEditing(false);
       return;
     }
-  
+
     setIsSaving(true);
-  
+
     try {
       await onSave(
         {
@@ -139,14 +167,14 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
         },
         true
       );
-  
+
       setIsEditing(false);
     } catch (error) {
       toast.error("Failed to save equipment. Please try again.");
     } finally {
       setIsSaving(false);
     }
-  };  
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -200,27 +228,33 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
   const handleOpenCamera = async () => {
     try {
       const imageBlob = await openCamera();
-  
+
       if (editedEquipment.images.length >= 3) {
         toast.warn("You can only upload up to 3 images.");
         return;
       }
-  
-      const imageFile = new File([imageBlob], `camera_capture_${Date.now()}.jpg`, { type: "image/jpeg" });
+
+      const imageFile = new File(
+        [imageBlob],
+        `camera_capture_${Date.now()}.jpg`,
+        { type: "image/jpeg" }
+      );
       const imageURL = URL.createObjectURL(imageBlob);
-  
+
       setEditedEquipment((prev) => ({
         ...prev,
-        images: [...prev.images, imageURL],  
-        newImages: prev.newImages ? [...prev.newImages, imageFile] : [imageFile],
+        images: [...prev.images, imageURL],
+        newImages: prev.newImages
+          ? [...prev.newImages, imageFile]
+          : [imageFile],
       }));
-  
+
       setShowImageUploadModal(false);
     } catch (err) {
       console.error("Camera was closed or an error occurred:", err);
       toast.error("Failed to capture image.");
     }
-  };  
+  };
 
   const equipmentTypes = [
     "Computer Accessory",
@@ -391,7 +425,7 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
               <Row>
                 <Col xs={12} md={showHistory ? 6 : 12}>
                   <Card className="shadow-sm p-3 bg-light">
-                    <h6 className="fw-bold">🔧 Equipment Information</h6>
+                    <h6 className="fw-bold">|| Equipment Information</h6>
                     <div className="small">
                       {[
                         ["Equipment Name", "name"],
@@ -579,7 +613,7 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
 
                   {/* Additional Information */}
                   <Card className="shadow-sm p-3 mt-3 mb-3">
-                    <h6 className="fw-bold">📍 Additional Information</h6>
+                    <h6 className="fw-bold">|| Additional Information</h6>
                     <div className="small">
                       {[
                         [
@@ -600,6 +634,22 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
                       ))}
                     </div>
                   </Card>
+
+                  <Card className="shadow-sm p-3 mt-3 mb-3 bg-light">
+                    <h6 className="fw-bold mb-2">|| Equipment State</h6>
+                    <div className="small">
+                      <div className="d-flex justify-content-between border-bottom py-1">
+                        <strong>State:</strong>
+                        <span>
+                          {equipmentState ? (
+                            <span>{equipmentState.state_message}</span>
+                          ) : (
+                            "Unknown status"
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
                 </Col>
 
                 {/* Right Side: Compact History Table */}
@@ -607,33 +657,33 @@ const ViewEquipmentModal = ({ show, onClose, equipment, onSave }) => {
                   <Col xs={12} md={6}>
                     <Card className="shadow-sm p-2 text-center">
                       <h6 className="fw-bold mb-2">📜 Equipment History</h6>
-                      <div className="table-responsive">
-                        <table className="table table-bordered table-sm small">
-                          <thead className="table-dark text-center">
-                            <tr>
-                              <th className="px-2 py-1">Date</th>
-                              <th className="px-2 py-1">Action</th>
-                              <th className="px-2 py-1">Performed By</th>
-                            </tr>
-                          </thead>
-                          <tbody className="text-center">
-                            <tr>
-                              <td className="px-2 py-1">Feb 10, 2025</td>
-                              <td className="px-2 py-1">Maintenance</td>
-                              <td className="px-2 py-1">John Doe</td>
-                            </tr>
-                            <tr>
-                              <td className="px-2 py-1">Feb 5, 2025</td>
-                              <td className="px-2 py-1">Checked Out</td>
-                              <td className="px-2 py-1">Jane Smith</td>
-                            </tr>
-                            <tr>
-                              <td className="px-2 py-1">Jan 22, 2025</td>
-                              <td className="px-2 py-1">Repaired</td>
-                              <td className="px-2 py-1">Admin</td>
-                            </tr>
-                          </tbody>
-                        </table>
+                      <div className="small">
+                        {equipmentHistory.length > 0 ? (
+                          <table className="table table-sm table-bordered">
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Action</th>
+                                <th>Performed By</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {equipmentHistory.map((entry, index) => (
+                                <tr key={index}>
+                                  <td>
+                                    {new Date(entry.date).toLocaleString()}
+                                  </td>
+                                  <td>{entry.action}</td>
+                                  <td>{entry.performed_by || "Unknown"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p className="text-muted">
+                            No history available for this equipment.
+                          </p>
+                        )}
                       </div>
                     </Card>
                   </Col>
