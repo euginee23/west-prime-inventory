@@ -5,8 +5,11 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import uploadReport from "../../utils/uploadReport";
+import { getLoggedInUser } from "../../utils/auth";
 
 const AdminTransactionReportsForm = () => {
+  const loggedInUser = getLoggedInUser();
+  
   const [transactions, setTransactions] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,8 @@ const AdminTransactionReportsForm = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const loggedInUser = getLoggedInUser();
+
         const [txnRes, usersRes, labsRes] = await Promise.all([
           axios.get(
             `${import.meta.env.VITE_API_BASE_URL}/api/reports/transactions`
@@ -37,23 +42,37 @@ const AdminTransactionReportsForm = () => {
           ),
           axios.get(`${import.meta.env.VITE_API_BASE_URL}/laboratories`),
         ]);
+
+        const allTransactions = txnRes.data;
+
         const uniqueTypes = [
-          ...new Set(txnRes.data.map((t) => t.transaction_type)),
+          ...new Set(allTransactions.map((t) => t.transaction_type)),
         ];
         const uniqueStatuses = [
-          ...new Set(txnRes.data.map((t) => t.status).filter(Boolean)),
+          ...new Set(allTransactions.map((t) => t.status).filter(Boolean)),
         ];
 
         setStatusTypes(uniqueStatuses);
         setTransactionTypes(uniqueTypes);
-        setTransactions(txnRes.data);
-        setFiltered(txnRes.data);
         setPersonnels(usersRes.data);
 
         const formattedLabs = labsRes.data.data.map(
           (lab) => `${lab.lab_name} (#${lab.lab_number})`
         );
         setLaboratories(formattedLabs);
+
+        if (loggedInUser?.role === "Personnel") {
+          const fullName = `${loggedInUser.firstName} ${loggedInUser.lastName}`;
+          const personalFiltered = allTransactions.filter(
+            (t) => t.handled_by === fullName
+          );
+          setTransactions(personalFiltered);
+          setFiltered(personalFiltered);
+          setSelectedPersonnel([fullName]);
+        } else {
+          setTransactions(allTransactions);
+          setFiltered(allTransactions);
+        }
 
         setLoading(false);
       } catch (err) {
@@ -172,13 +191,12 @@ const AdminTransactionReportsForm = () => {
 
       const worksheet = XLSX.utils.json_to_sheet(formatted);
 
-      // 👇 Auto-fit column widths based on content length
       const maxColWidths = Object.keys(formatted[0]).map((key) => {
         const maxLength = Math.max(
           key.length,
           ...formatted.map((row) => (row[key] ? row[key].toString().length : 0))
         );
-        return { wch: maxLength + 2 }; // +2 for padding
+        return { wch: maxLength + 2 };
       });
       worksheet["!cols"] = maxColWidths;
 
@@ -322,21 +340,23 @@ const AdminTransactionReportsForm = () => {
       </div>
       {showFilters && (
         <div className="mb-3">
-          <div className="filter-container p-3 border rounded bg-light">
-            <div className="d-flex flex-wrap gap-2">
-              {personnels.map((person) => (
-                <label key={person.user_id} className="form-check-label me-3">
-                  <input
-                    type="checkbox"
-                    className="form-check-input me-1"
-                    checked={selectedPersonnel.includes(person.name)}
-                    onChange={() => handleCheckboxChange(person.name)}
-                  />
-                  {person.name}
-                </label>
-              ))}
+          {loggedInUser?.role === "Admin" && (
+            <div className="filter-container p-3 border rounded bg-light">
+              <div className="d-flex flex-wrap gap-2">
+                {personnels.map((person) => (
+                  <label key={person.user_id} className="form-check-label me-3">
+                    <input
+                      type="checkbox"
+                      className="form-check-input me-1"
+                      checked={selectedPersonnel.includes(person.name)}
+                      onChange={() => handleCheckboxChange(person.name)}
+                    />
+                    {person.name}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <h6 className="mt-2">Filter by Laboratory Location:</h6>
           <div className="filter-container p-3 border rounded bg-light mb-3">
             <div className="d-flex flex-wrap gap-2">

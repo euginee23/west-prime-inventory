@@ -2502,21 +2502,33 @@ app.post("/api/report-files", async (req, res) => {
   }
 });
 
-// GET ADMIN EQUIPMENT REPORTS
+// GET EQUIPMENT REPORTS
 app.get("/api/reports/equipments", async (req, res) => {
   let connection;
+  const { user_id } = req.query;
+
   try {
     connection = await db.getConnection();
 
-    const [results] = await connection.execute(`
+    let query = `
       SELECT 
         e.equipment_id, e.name, e.number, e.type, e.brand,
         e.operational_status, e.availability_status, e.created_at,
         l.lab_name, l.lab_number
       FROM equipments e
       LEFT JOIN laboratories l ON e.laboratory_id = l.lab_id
-      ORDER BY e.created_at DESC
-    `);
+    `;
+
+    const params = [];
+
+    if (user_id) {
+      query += ` WHERE e.user_id = ?`;
+      params.push(user_id);
+    }
+
+    query += ` ORDER BY e.created_at DESC`;
+
+    const [results] = await connection.execute(query, params);
 
     const formatted = results.map((row) => ({
       ...row,
@@ -2535,7 +2547,7 @@ app.get("/api/reports/equipments", async (req, res) => {
   }
 });
 
-// GET TRANSACTIONS WITH CLIENT DATA ONLY (NO MAINTENANCE)
+// GET TRANSACTIONS REPORTS
 app.get("/api/reports/transactions", async (req, res) => {
   let connection;
   try {
@@ -2574,7 +2586,7 @@ app.get("/api/reports/transactions", async (req, res) => {
   }
 });
 
-// GET MAINTENANCE TRANSACTIONS (WHERE technician_id IS NOT NULL)
+// GET MAINTENANCE TRANSACTIONS REPORTS
 app.get("/api/reports/maintenance", async (req, res) => {
   let connection;
   try {

@@ -5,6 +5,7 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import uploadReport from "../../utils/uploadReport";
+import { getLoggedInUser } from "../../utils/auth";
 
 const AdminMaintenanceReportsForm = () => {
   const [maintenanceData, setMaintenanceData] = useState([]);
@@ -26,10 +27,39 @@ const AdminMaintenanceReportsForm = () => {
   useEffect(() => {
     const fetchMaintenance = async () => {
       try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_BASE_URL}/api/reports/maintenance`
+        const loggedInUser = getLoggedInUser();
+
+        const [res, personnelsRes, labsRes] = await Promise.all([
+          axios.get(
+            `${import.meta.env.VITE_API_BASE_URL}/api/reports/maintenance`
+          ),
+          axios.get(
+            `${import.meta.env.VITE_API_BASE_URL}/api/personnels-and-admins`
+          ),
+          axios.get(`${import.meta.env.VITE_API_BASE_URL}/laboratories`),
+        ]);
+
+        const allData = res.data;
+
+        const labsFormatted = labsRes.data.data.map(
+          (lab) => `${lab.lab_name} (#${lab.lab_number})`
         );
-        setMaintenanceData(res.data);
+        setLaboratories(labsFormatted);
+        setPersonnels(personnelsRes.data);
+
+        if (loggedInUser?.role === "Personnel") {
+          const fullName = `${loggedInUser.firstName} ${loggedInUser.lastName}`;
+          const personalFiltered = allData.filter(
+            (row) => row.handled_by === fullName
+          );
+          setSelectedPersonnel([fullName]);
+          setMaintenanceData(personalFiltered);
+          setFiltered(personalFiltered);
+        } else {
+          setMaintenanceData(allData);
+          setFiltered(allData);
+        }
+
         setLoading(false);
       } catch (err) {
         console.error("Error fetching maintenance data:", err);
@@ -312,29 +342,33 @@ const AdminMaintenanceReportsForm = () => {
 
       {showFilters && (
         <div className="mb-3">
-          <div className="filter-container p-3 border rounded bg-light mb-3">
-            <h6 className="mb-2">Filter by Personnel:</h6>
-            <div className="d-flex flex-wrap gap-2">
-              {personnels.map((person) => (
-                <label key={person.user_id} className="form-check-label me-3">
-                  <input
-                    type="checkbox"
-                    className="form-check-input me-1"
-                    checked={selectedPersonnel.includes(person.name)}
-                    onChange={() => {
-                      setSelectedPersonnel((prev) =>
-                        prev.includes(person.name)
-                          ? prev.filter((n) => n !== person.name)
-                          : [...prev, person.name]
-                      );
-                    }}
-                  />
-                  {person.name}
-                </label>
-              ))}
+          {/* Filter by Personnel (Admins Only) */}
+          {getLoggedInUser()?.role === "Admin" && (
+            <div className="filter-container p-3 border rounded bg-light mb-3">
+              <h6 className="mb-2">Filter by Personnel:</h6>
+              <div className="d-flex flex-wrap gap-2">
+                {personnels.map((person) => (
+                  <label key={person.user_id} className="form-check-label me-3">
+                    <input
+                      type="checkbox"
+                      className="form-check-input me-1"
+                      checked={selectedPersonnel.includes(person.name)}
+                      onChange={() =>
+                        setSelectedPersonnel((prev) =>
+                          prev.includes(person.name)
+                            ? prev.filter((n) => n !== person.name)
+                            : [...prev, person.name]
+                        )
+                      }
+                    />
+                    {person.name}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
+          {/* Filter by Laboratory Location */}
           <div className="filter-container p-3 border rounded bg-light mb-3">
             <h6 className="mb-2">Filter by Laboratory Location:</h6>
             <div className="d-flex flex-wrap gap-2">
@@ -344,19 +378,21 @@ const AdminMaintenanceReportsForm = () => {
                     type="checkbox"
                     className="form-check-input me-1"
                     checked={selectedLabs.includes(lab)}
-                    onChange={() => {
+                    onChange={() =>
                       setSelectedLabs((prev) =>
                         prev.includes(lab)
                           ? prev.filter((l) => l !== lab)
                           : [...prev, lab]
-                      );
-                    }}
+                      )
+                    }
                   />
                   {lab}
                 </label>
               ))}
             </div>
           </div>
+
+          {/* Filter by Transaction Type */}
           <div className="filter-container p-3 border rounded bg-light mb-3">
             <h6 className="mb-2">Filter by Transaction Type:</h6>
             <div className="d-flex flex-wrap gap-2">
@@ -366,19 +402,21 @@ const AdminMaintenanceReportsForm = () => {
                     type="checkbox"
                     className="form-check-input me-1"
                     checked={selectedTypes.includes(type)}
-                    onChange={() => {
+                    onChange={() =>
                       setSelectedTypes((prev) =>
                         prev.includes(type)
                           ? prev.filter((t) => t !== type)
                           : [...prev, type]
-                      );
-                    }}
+                      )
+                    }
                   />
                   {type}
                 </label>
               ))}
             </div>
           </div>
+
+          {/* Filter by Status */}
           <div className="filter-container p-3 border rounded bg-light mb-3">
             <h6 className="mb-2">Filter by Status:</h6>
             <div className="d-flex flex-wrap gap-2">
@@ -388,19 +426,21 @@ const AdminMaintenanceReportsForm = () => {
                     type="checkbox"
                     className="form-check-input me-1"
                     checked={selectedStatuses.includes(status)}
-                    onChange={() => {
+                    onChange={() =>
                       setSelectedStatuses((prev) =>
                         prev.includes(status)
                           ? prev.filter((s) => s !== status)
                           : [...prev, status]
-                      );
-                    }}
+                      )
+                    }
                   />
                   {status}
                 </label>
               ))}
             </div>
           </div>
+
+          {/* Filter by Transaction Date */}
           <h6 className="mb-2">Filter by Transaction Date:</h6>
           <div className="filter-container p-3 border rounded bg-light mb-3">
             <div className="row g-3">
@@ -424,6 +464,8 @@ const AdminMaintenanceReportsForm = () => {
               </div>
             </div>
           </div>
+
+          {/* Clear Filters Button */}
           <div className="text-end">
             <button
               className="btn btn-sm btn-danger"

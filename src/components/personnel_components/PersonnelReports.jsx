@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
 import "react-tabs/style/react-tabs.css";
-import EquipmentReports from "../forms/EquipmentsReportsForm";
-import TransactionReports from "../forms/TransactionReportForm";
-import MaintenanceReports from "../forms/MaintenanceReports";
+import AdminEquipmentsForm from "../forms/AdminEquipmentsReportsForm";
+import AdminTransactionReportsForm from "../forms/AdminTransactionReportsForm";
+import AdminMaintenanceReportsForm from "../forms/AdminMaintenanceReportsForm";
+import AdminReportsLogForm from "../forms/AdminReportsLogForm";
 
 const PersonnelReports = () => {
   const [tabIndex, setTabIndex] = useState(0);
@@ -16,7 +17,7 @@ const PersonnelReports = () => {
           {/* Tab Navigation */}
           <TabList className="tab-list">
             <Tab className={`tab-item ${tabIndex === 0 ? "active-tab" : ""}`}>
-              Equipment
+              Equipments
             </Tab>
             <Tab className={`tab-item ${tabIndex === 1 ? "active-tab" : ""}`}>
               Transactions
@@ -24,36 +25,24 @@ const PersonnelReports = () => {
             <Tab className={`tab-item ${tabIndex === 2 ? "active-tab" : ""}`}>
               Maintenance
             </Tab>
-            <Tab className={`tab-item ${tabIndex === 3 ? "active-tab" : ""}`}>
-              Summary
-            </Tab>
             <Tab className={`tab-item ${tabIndex === 4 ? "active-tab" : ""}`}>
-              Audit Logs
+              Your Logs
             </Tab>
           </TabList>
 
           {/* Reports Content */}
           <div className="tab-content">
             <TabPanel>
-              <EquipmentReports />
+              <AdminEquipmentsForm />
             </TabPanel>
             <TabPanel>
-              <TransactionReports />
+              <AdminTransactionReportsForm />
             </TabPanel>
             <TabPanel>
-              <MaintenanceReports />
+              <AdminMaintenanceReportsForm />
             </TabPanel>
             <TabPanel>
-              <div>
-                <h4>Reports Summary</h4>
-                <p>This is a placeholder for reports summary.</p>
-              </div>
-            </TabPanel>
-            <TabPanel>
-              <div>
-                <h4>Audit Logs</h4>
-                <p>This is a placeholder for audit logs.</p>
-              </div>
+              <AdminReportsLogForm />
             </TabPanel>
           </div>
         </Tabs>

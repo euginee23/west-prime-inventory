@@ -5,6 +5,7 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import uploadReport from "../../utils/uploadReport";
+import { getLoggedInUser } from "../../utils/auth";
 
 const AdminEquipmentsForm = () => {
   const [equipments, setEquipments] = useState([]);
@@ -21,18 +22,29 @@ const AdminEquipmentsForm = () => {
   });
 
   useEffect(() => {
-    axios
-      .get(`${import.meta.env.VITE_API_BASE_URL}/api/reports/equipments`)
-      .then((res) => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const { user_id, role } = getLoggedInUser();
+        let url = `${import.meta.env.VITE_API_BASE_URL}/api/reports/equipments`;
+
+        if (role === "Personnel") {
+          url += `?user_id=${user_id}`;
+        }
+
+        const res = await axios.get(url);
         const data = Array.isArray(res.data) ? res.data : [];
+
         setEquipments(data);
         setFiltered(data);
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Error fetching equipments:", err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   useEffect(() => {

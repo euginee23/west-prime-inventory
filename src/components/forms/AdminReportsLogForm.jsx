@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { getLoggedInUser } from "../../utils/auth";
 
 const AdminReportsLogForm = () => {
   const [logs, setLogs] = useState([]);
@@ -123,22 +124,24 @@ const AdminReportsLogForm = () => {
       {showFilters && (
         <div className="mb-3">
           {/* Filter by Personnel */}
-          <div className="p-3 border rounded bg-light mb-3">
-            <strong>Filter by Personnel:</strong>
-            <div className="d-flex flex-wrap gap-2 mt-2">
-              {personnels.map((person) => (
-                <label key={person.user_id} className="form-check-label me-3">
-                  <input
-                    type="checkbox"
-                    className="form-check-input me-1"
-                    checked={selectedPersonnel.includes(person.name)}
-                    onChange={() => handlePersonnelChange(person.name)}
-                  />
-                  {person.name}
-                </label>
-              ))}
+          {getLoggedInUser()?.role === "Admin" && (
+            <div className="p-3 border rounded bg-light mb-3">
+              <strong>Filter by Personnel:</strong>
+              <div className="d-flex flex-wrap gap-2 mt-2">
+                {personnels.map((person) => (
+                  <label key={person.user_id} className="form-check-label me-3">
+                    <input
+                      type="checkbox"
+                      className="form-check-input me-1"
+                      checked={selectedPersonnel.includes(person.name)}
+                      onChange={() => handlePersonnelChange(person.name)}
+                    />
+                    {person.name}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Filter by File Type */}
           <div className="p-3 border rounded bg-light mb-3">
