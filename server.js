@@ -568,7 +568,6 @@ app.get("/equipments", authenticateToken, async (req, res) => {
     let queryParams = [];
 
     if (userRole === "Personnel") {
-      // Get the latest active lab assignment for the Personnel
       const [designation] = await connection.execute(
         `SELECT lab_id FROM personnel_designations 
          WHERE user_id = ? AND status = 'Active'
@@ -584,7 +583,6 @@ app.get("/equipments", authenticateToken, async (req, res) => {
 
       const assignedLabId = designation[0].lab_id;
 
-      // Filter equipment by the assigned lab_id
       query += " WHERE e.laboratory_id = ?";
       queryParams.push(assignedLabId);
     }
@@ -1055,6 +1053,36 @@ app.get("/clients/search", async (req, res) => {
     res.status(200).json({ clients });
   } catch (error) {
     console.error("Error searching clients:", error);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET ALL USERS (Personnel + Admin)
+app.get("/api/personnels-and-admins", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(`
+      SELECT user_id, first_name, last_name, user_type
+      FROM users
+      WHERE user_type IN ('Personnel', 'Admin')
+      ORDER BY first_name ASC
+    `);
+
+    const formatted = results.map((user) => ({
+      user_id: user.user_id,
+      name:
+        user.user_type === "Admin"
+          ? `${user.first_name} ${user.last_name}`
+          : `${user.first_name} ${user.last_name}`,
+    }));
+
+    res.status(200).json(formatted);
+  } catch (err) {
+    console.error("Error fetching personnels/admins:", err);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     if (connection) connection.release();
@@ -1849,13 +1877,20 @@ app.get("/equipment-state/:equipment_id", async (req, res) => {
     if (equipment.availability_status === "Available") {
       stateMessage = "✅ Ready to be used.";
     } else if (equipment.availability_status === "In-Use") {
-      stateMessage = `⏳ Equipment is being used. Reason: ${equipment.latest_reason || "No reason provided"} by Client: ${equipment.client_name || "Unknown"}`;
+      stateMessage = `⏳ Equipment is being used. Reason: ${
+        equipment.latest_reason || "No reason provided"
+      } by Client: ${equipment.client_name || "Unknown"}`;
     } else if (equipment.availability_status === "Maintenance") {
-      stateMessage = `🔧 Equipment is out for maintenance. Reason: ${equipment.latest_reason || "No reason provided"}`;
+      stateMessage = `🔧 Equipment is out for maintenance. Reason: ${
+        equipment.latest_reason || "No reason provided"
+      }`;
     } else if (equipment.availability_status === "Being Maintained") {
-      stateMessage = `🛠️ Equipment is Being Maintained. Reason: ${equipment.latest_reason || "No reason provided"}`;
+      stateMessage = `🛠️ Equipment is Being Maintained. Reason: ${
+        equipment.latest_reason || "No reason provided"
+      }`;
     } else if (equipment.availability_status === "Lost") {
-      stateMessage = "⚠️ The equipment is Lost. Please check history and tracking.";
+      stateMessage =
+        "⚠️ The equipment is Lost. Please check history and tracking.";
     }
 
     res.status(200).json({
@@ -1869,7 +1904,6 @@ app.get("/equipment-state/:equipment_id", async (req, res) => {
       client_name: equipment.client_name,
       state_message: stateMessage,
     });
-
   } catch (err) {
     console.error("Error fetching equipment state:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -2444,6 +2478,249 @@ app.post("/maintenance/repair-failed-return", async (req, res) => {
   } catch (err) {
     console.error("Error handling repair failure:", err);
     res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// UPLOAD REPORT FILES TO DATABASE
+app.post("/api/report-files", async (req, res) => {
+  const { user_id, file_name, file_data, type, report_type } = req.body;
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.execute(
+      `INSERT INTO report_files (user_id, file_name, file_data, type, report_type) VALUES (?, ?, ?, ?, ?)`,
+      [user_id, file_name, Buffer.from(file_data, "base64"), type, report_type]
+    );
+    res.status(200).json({ message: "File stored successfully" });
+  } catch (err) {
+    console.error("Error storing report file:", err);
+    res.status(500).json({ message: "Failed to store file" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET ADMIN EQUIPMENT REPORTS
+app.get("/api/reports/equipments", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(`
+      SELECT 
+        e.equipment_id, e.name, e.number, e.type, e.brand,
+        e.operational_status, e.availability_status, e.created_at,
+        l.lab_name, l.lab_number
+      FROM equipments e
+      LEFT JOIN laboratories l ON e.laboratory_id = l.lab_id
+      ORDER BY e.created_at DESC
+    `);
+
+    const formatted = results.map((row) => ({
+      ...row,
+      laboratory:
+        row.lab_name && row.lab_number
+          ? `${row.lab_name} (#${row.lab_number})`
+          : "N/A",
+    }));
+
+    res.status(200).json(formatted);
+  } catch (err) {
+    console.error("Error fetching report data:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET TRANSACTIONS WITH CLIENT DATA ONLY (NO MAINTENANCE)
+app.get("/api/reports/transactions", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(`
+      SELECT 
+        sea.action_id AS id,
+        e.name AS equipment,
+        CONCAT(l.lab_name, ' (#', l.lab_number, ')') AS laboratory_location,
+        CONCAT(u.first_name, ' ', u.last_name) AS handled_by,
+        CONCAT(c.first_name, ' ', c.last_name) AS client,
+        sea.tracking_code,
+        sea.reason,
+        sea.transaction_type,
+        sea.date,
+        sea.time,
+        sea.return_datetime,
+        sea.notes,
+        sea.status
+      FROM scanned_equipments_actions sea
+      LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
+      LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
+      LEFT JOIN users u ON sea.user_id = u.user_id
+      LEFT JOIN clients c ON sea.client_id = c.client_id
+      WHERE sea.client_id IS NOT NULL
+      ORDER BY sea.date DESC, sea.time DESC
+    `);
+
+    res.status(200).json(results);
+  } catch (err) {
+    console.error("Error fetching transaction reports:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET MAINTENANCE TRANSACTIONS (WHERE technician_id IS NOT NULL)
+app.get("/api/reports/maintenance", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(`
+      SELECT 
+        sea.action_id AS id,
+        e.name AS equipment,
+        CONCAT(l.lab_name, ' (#', l.lab_number, ')') AS laboratory_location,
+        CONCAT(u.first_name, ' ', u.last_name) AS handled_by,
+        CONCAT(t.name, ' (', t.contact_number, ') - ', t.shop_name) AS technician,
+        sea.tracking_code,
+        sea.reason,
+        sea.transaction_type,
+        sea.date,
+        sea.time,
+        sea.notes,
+        sea.status
+      FROM scanned_equipments_actions sea
+      LEFT JOIN equipments e ON sea.equipment_id = e.equipment_id
+      LEFT JOIN laboratories l ON sea.lab_id = l.lab_id
+      LEFT JOIN users u ON sea.user_id = u.user_id
+      LEFT JOIN technicians t ON sea.technician_id = t.technician_id
+      WHERE sea.technician_id IS NOT NULL
+      ORDER BY sea.date DESC, sea.time DESC
+    `);
+
+    res.status(200).json(results);
+  } catch (err) {
+    console.error("Error fetching maintenance reports:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET ADMIN PERSONNEL REPORTS
+app.get("/api/reports/personnels", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(`
+      SELECT 
+        pd.designation_id,
+        u.user_id,
+        CONCAT(u.first_name, ' ', u.middle_name, ' ', u.last_name) AS full_name,
+        u.phone,
+        u.email,
+        u.username,
+        u.created_at AS user_created_at,
+        pd.status AS assignment_status,
+        pd.created_at AS assignment_date,
+        COALESCE(l.lab_name, 'N/A') AS lab_name,
+        COALESCE(l.lab_number, 'N/A') AS lab_number
+      FROM personnel_designations pd
+      LEFT JOIN users u ON pd.user_id = u.user_id
+      LEFT JOIN laboratories l ON pd.lab_id = l.lab_id
+      ORDER BY pd.created_at DESC
+    `);
+
+    res.status(200).json(results);
+  } catch (err) {
+    console.error("Error fetching personnel report data:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET REPORT LOGS
+app.get("/api/report-files", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const userType = req.user.role;
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    let query = `
+      SELECT rf.file_id, rf.file_name, rf.report_type, rf.type, rf.created_at, u.first_name, u.last_name
+      FROM report_files rf
+      JOIN users u ON rf.user_id = u.user_id
+    `;
+    const params = [];
+
+    if (userType === "Personnel") {
+      query += ` WHERE rf.user_id = ?`;
+      params.push(userId);
+    }
+
+    query += ` ORDER BY rf.created_at DESC`;
+
+    const [rows] = await connection.execute(query, params);
+
+    const formatted = rows.map((row) => ({
+      file_id: row.file_id,
+      file_name: row.file_name,
+      report_type: row.report_type,
+      type: row.type,
+      created_at: row.created_at,
+      full_name: `${row.first_name} ${row.last_name}`,
+    }));
+
+    res.status(200).json(formatted);
+  } catch (err) {
+    console.error("Error fetching report files:", err);
+    res.status(500).json({ message: "Failed to fetch report files" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// DOWNLOAD REPORT LOG BY ID
+app.get("/api/report-files/download/:fileId", async (req, res) => {
+  const { fileId } = req.params;
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    const [rows] = await connection.execute(
+      "SELECT file_name, file_data, type FROM report_files WHERE file_id = ?",
+      [fileId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "File not found." });
+    }
+
+    const file = rows[0];
+    const contentType =
+      file.type === "pdf"
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${file.file_name}"`
+    );
+    res.setHeader("Content-Type", contentType);
+    res.send(file.file_data);
+  } catch (err) {
+    console.error("Error downloading report file:", err);
+    res.status(500).json({ message: "Failed to download file" });
   } finally {
     if (connection) connection.release();
   }

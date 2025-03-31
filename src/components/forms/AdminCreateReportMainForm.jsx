@@ -1,37 +1,49 @@
 import React, { useState } from "react";
 import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
 import "react-tabs/style/react-tabs.css";
-import AdminCreateReportMainForm from "../forms/AdminCreateReportMainForm";
-import AdminReportsLogForm from "../forms/AdminReportsLogForm";
+import AdminEquipmentsForm from "./AdminEquipmentsReportsForm";
+import AdminTransactionReportsForm from "./AdminTransactionReportsForm";
+import AdminMaintenanceReportsForm from "./AdminMaintenanceReportsForm";
+import AdminPersonnelsReportsForm from "./AdminPersonnelReportsForm";
 
-const AdminReports = () => {
+const AdminCreateReportMainForm = () => {
   const [tabIndex, setTabIndex] = useState(0);
 
   return (
     <div className="full-container">
       {/* Tabs & Content Wrapper */}
-      <div className="tab-container card p-3 shadow-sm">
-        <Tabs selectedIndex={tabIndex} onSelect={(index) => setTabIndex(index)}>
-          {/* Tab Navigation */}
-          <TabList className="tab-list">
-            <Tab className={`tab-item ${tabIndex === 0 ? "active-tab" : ""}`}>
-              All Logs
-            </Tab>
-            <Tab className={`tab-item ${tabIndex === 1 ? "active-tab" : ""}`}>
-              Create
-            </Tab>
-          </TabList>
+      <Tabs selectedIndex={tabIndex} onSelect={(index) => setTabIndex(index)}>
+        <TabList className="tab-list">
+          <Tab className={`tab-item ${tabIndex === 0 ? "active-tab" : ""}`}>
+            Equipments
+          </Tab>
+          <Tab className={`tab-item ${tabIndex === 1 ? "active-tab" : ""}`}>
+            Transactions
+          </Tab>
+          <Tab className={`tab-item ${tabIndex === 2 ? "active-tab" : ""}`}>
+            Maintenance
+          </Tab>
+          <Tab className={`tab-item ${tabIndex === 3 ? "active-tab" : ""}`}>
+            Personnels
+          </Tab>
+        </TabList>
 
-          {/* Tab Panels must be direct children of <Tabs> */}
+        {/* Reports Content */}
+        <div className="tab-content">
           <TabPanel>
-            <AdminReportsLogForm />
+            <AdminEquipmentsForm />
           </TabPanel>
-
           <TabPanel>
-            <AdminCreateReportMainForm />
+            <AdminTransactionReportsForm />
           </TabPanel>
-        </Tabs>
-      </div>
+          <TabPanel>
+            <AdminMaintenanceReportsForm />
+          </TabPanel>
+          <TabPanel>
+            <AdminPersonnelsReportsForm />
+          </TabPanel>
+        </div>
+      </Tabs>
 
       {/* CSS Styles */}
       <style jsx>{`
@@ -94,6 +106,10 @@ const AdminReports = () => {
             font-size: 13px;
             padding: 8px 10px;
           }
+
+          .tab-content {
+            padding: 10px;
+          }
         }
 
         /* Table Responsiveness */
@@ -108,4 +124,4 @@ const AdminReports = () => {
   );
 };
 
-export default AdminReports;
+export default AdminCreateReportMainForm;
