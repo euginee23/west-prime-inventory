@@ -34,7 +34,7 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 20,
+  connectionLimit: 5,
   queueLimit: 0,
 });
 
@@ -2733,6 +2733,299 @@ app.get("/api/report-files/download/:fileId", async (req, res) => {
   } catch (err) {
     console.error("Error downloading report file:", err);
     res.status(500).json({ message: "Failed to download file" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET TOTAL EQUIPMENTS
+app.get("/dashboard/total-equipments-today", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+    const [result] = await connection.execute(`
+      SELECT COUNT(*) AS total_equipments FROM equipments
+    `);
+
+    res.status(200).json({
+      message: "Total equipments fetched successfully.",
+      total: result[0].total_equipments,
+    });
+  } catch (err) {
+    console.error("Error fetching total equipments:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET AVAILABLE EQUIPMENTS
+app.get("/dashboard/available-equipments", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [result] = await connection.execute(`
+      SELECT COUNT(*) AS total_available
+      FROM equipments
+      WHERE availability_status = 'Available'
+    `);
+
+    res.status(200).json({
+      message: "Available equipment count fetched successfully.",
+      total: result[0].total_available,
+    });
+  } catch (err) {
+    console.error("Error fetching available equipment count:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET IN-USE EQUIPMENTS
+app.get("/dashboard/in-use-equipments", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [result] = await connection.execute(`
+      SELECT COUNT(*) AS total_in_use
+      FROM equipments
+      WHERE availability_status = 'In-Use'
+    `);
+
+    res.status(200).json({
+      message: "In-use equipment count fetched successfully.",
+      total: result[0].total_in_use,
+    });
+  } catch (err) {
+    console.error("Error fetching in-use equipment count:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET LOST EQUIPMENTS
+app.get("/dashboard/lost-equipments", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+    const [result] = await connection.execute(`
+      SELECT COUNT(*) AS total FROM equipments WHERE availability_status = 'Lost'
+    `);
+    res.status(200).json({ total: result[0].total });
+  } catch (err) {
+    console.error("Error fetching lost equipment count:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET ON-MAINTENANCE EQUIPMENTS
+app.get("/dashboard/maintenance-equipments", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [result] = await connection.execute(`
+      SELECT COUNT(*) AS total_maintenance
+      FROM equipments
+      WHERE availability_status IN ('Maintenance', 'Being Maintained')
+    `);
+
+    res.status(200).json({
+      message: "Maintenance equipment count fetched successfully.",
+      total: result[0].total_maintenance,
+    });
+  } catch (err) {
+    console.error("Error fetching maintenance equipment count:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET EQUIPMENTS BY OPERATIONAL STATUS
+app.get("/dashboard/operational-status", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [result] = await connection.execute(`
+      SELECT 
+        SUM(CASE WHEN operational_status = 'Operational' THEN 1 ELSE 0 END) AS operational,
+        SUM(CASE WHEN operational_status = 'Defective' THEN 1 ELSE 0 END) AS defective,
+        SUM(CASE WHEN operational_status = 'Damaged' THEN 1 ELSE 0 END) AS damaged
+      FROM equipments
+    `);
+
+    res.status(200).json({
+      message: "Operational status counts fetched successfully.",
+      data: result[0],
+    });
+  } catch (err) {
+    console.error("Error fetching operational status:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET EQUIPMENTS DISTRIBUTION BY LAB
+app.get("/dashboard/equipments-by-lab", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [result] = await connection.execute(`
+      SELECT 
+        CONCAT(l.lab_name, ' (#', l.lab_number, ')') AS name, 
+        COUNT(e.equipment_id) AS count
+      FROM equipments e
+      LEFT JOIN laboratories l ON e.laboratory_id = l.lab_id
+      GROUP BY l.lab_id
+      ORDER BY count DESC
+    `);
+
+    res.status(200).json({
+      message: "Equipment distribution by lab fetched successfully.",
+      data: result,
+    });
+  } catch (err) {
+    console.error("Error fetching equipment distribution by lab:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET RECENT ACTIONS
+app.get("/dashboard/recent-activities", async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [rows] = await connection.query(`
+      SELECT
+        sea.transaction_type AS action,
+        CONCAT(u.first_name, ' ', u.last_name) AS personnel,
+        sea.date AS activity_date,
+        sea.time AS activity_time
+      FROM scanned_equipments_actions sea
+      LEFT JOIN users u ON sea.user_id = u.user_id
+
+      UNION ALL
+
+      SELECT
+        CONCAT('Generated ', rf.report_type) AS action,
+        CONCAT(u.first_name, ' ', u.last_name) AS personnel,
+        DATE(rf.created_at) AS activity_date,
+        TIME(rf.created_at) AS activity_time
+      FROM report_files rf
+      LEFT JOIN users u ON rf.user_id = u.user_id
+
+      ORDER BY activity_date DESC, activity_time DESC
+      LIMIT 10
+    `);
+
+    res.status(200).json({ data: rows });
+  } catch (err) {
+    console.error("Error fetching recent activities:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET EQUIPMENTS BY AVAILABILITY STATUS
+app.get("/dashboard/equipments-by-availability", async (req, res) => {
+  const { status } = req.query;
+
+  if (!status) {
+    return res.status(400).json({ message: "Status query is required." });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const [results] = await connection.execute(
+      `
+      SELECT 
+        e.equipment_id AS id,
+        e.name,
+        e.type,
+        e.brand,
+        l.lab_name,
+        l.lab_number
+      FROM equipments e
+      LEFT JOIN laboratories l ON e.laboratory_id = l.lab_id
+      WHERE e.availability_status = ?
+    `,
+      [status]
+    );
+
+    res.status(200).json(results);
+  } catch (err) {
+    console.error("Error fetching equipments by availability:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET EQUIPMENTS BY OPERATIONAL STATUS
+app.get("/dashboard/equipments-by-operational", async (req, res) => {
+  const { status } = req.query;
+  let connection;
+  try {
+    connection = await db.getConnection();
+    const [result] = await connection.execute(
+      `
+      SELECT e.equipment_id, e.name, e.type, e.brand, l.lab_name, l.lab_number
+      FROM equipments e
+      JOIN laboratories l ON e.laboratory_id = l.lab_id
+      WHERE e.operational_status = ?
+    `,
+      [status]
+    );
+
+    res.json(result);
+  } catch (err) {
+    console.error("Error fetching operational equipments:", err);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// GET EQUIPMENTS BY LABORATORY
+app.get("/dashboard/equipments-by-lab-name", async (req, res) => {
+  const { lab_name, lab_number } = req.query;
+
+  if (!lab_name || !lab_number) {
+    return res.status(400).json({
+      error: "Both lab_name and lab_number query parameters are required.",
+    });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+    const [rows] = await connection.execute(
+      `SELECT e.equipment_id AS id, e.name, e.type, e.brand, l.lab_name, l.lab_number
+       FROM equipments e
+       JOIN laboratories l ON e.laboratory_id = l.lab_id
+       WHERE l.lab_name = ? AND l.lab_number = ?`,
+      [lab_name, lab_number]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching equipments by lab:", err);
+    res.status(500).json({ error: "Internal server error" });
   } finally {
     if (connection) connection.release();
   }

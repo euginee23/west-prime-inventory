@@ -285,18 +285,14 @@ const ViewEquipmentModal = ({
 
   const operationalStatusOptions = [
     "Operational",
-    "Needs Repair",
-    "For Disposal",
-    "Under Maintenance",
-    "Decommissioned",
+    "Defective",
+    "Damaged",
   ];
 
   const availabilityStatusOptions = [
     "Available",
     "In Use",
-    "Reserved",
-    "Out of Service",
-    "Retired",
+    "Maintenance",
   ];
 
   useEffect(() => {
