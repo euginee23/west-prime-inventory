@@ -15,6 +15,8 @@ import MaintenanceAcceptedModal from "../modals/MaintenanceAcceptedModal";
 import MaintenanceCancelledModal from "../modals/MaintenanceCancelModal";
 import FinishRepairAndReturnModal from "../modals/FinishRepairAndReturnModal";
 import RepairFailedReturnModal from "../modals/RepairFailedModal";
+import PreventCheckOutModal from "../modals/PreventCheckOutModal";
+import PreventLostActionsModal from "../modals/PreventLostActionModal";
 
 const ScanEquipment = () => {
   const [scanResult, setScanResult] = useState(null);
@@ -45,6 +47,10 @@ const ScanEquipment = () => {
 
   const [showMaintenanceAcceptedModal, setShowMaintenanceAcceptedModal] =
     useState(false);
+
+  const [showPreventCheckOutModal, setShowPreventCheckOutModal] =
+    useState(false);
+  const [showPreventLostModal, setShowPreventLostModal] = useState(false);
 
   useEffect(() => {
     const updateScannerSize = () => {
@@ -81,6 +87,20 @@ const ScanEquipment = () => {
   ];
 
   const handleActionClick = (action) => {
+    const status = equipment?.operational_status?.trim().toLowerCase();
+    if (
+      (status === "defective" || status === "damaged") &&
+      action === "Check Out"
+    ) {
+      setShowPreventCheckOutModal(true);
+      return;
+    }
+
+    if (equipment?.availability_status === "Lost") {
+      setShowPreventLostModal(true);
+      return;
+    }
+
     if (selectedAction === action) {
       setSelectedAction(null);
     } else {
@@ -238,6 +258,7 @@ const ScanEquipment = () => {
       style={{ maxWidth: "900px", margin: "auto" }}
     >
       <ToastContainer autoClose={2000} />
+
       <ImageViewerModal
         show={showImageViewer}
         onClose={() => setShowImageViewer(false)}
@@ -254,6 +275,7 @@ const ScanEquipment = () => {
           )
         }
       />
+
       <CheckOutActionModal
         show={showCheckOutModal}
         onClose={() => setShowCheckOutModal(false)}
@@ -261,18 +283,21 @@ const ScanEquipment = () => {
         equipment={equipment}
         handleClear={handleClear}
       />
+
       <ReturnEquipmentModal
         show={showReturnModal}
         onClose={() => setShowReturnModal(false)}
         equipment={equipment}
         handleClear={handleClear}
       />
+
       <MarkAsLostModal
         show={showMarkAsLostModal}
         onClose={() => setShowMarkAsLostModal(false)}
         equipment={equipment}
         handleClear={handleClear}
       />
+
       <MaintenanceActionModal
         show={showMaintenanceModal}
         onClose={() => setShowMaintenanceModal(false)}
@@ -281,6 +306,7 @@ const ScanEquipment = () => {
         setEquipment={setEquipment}
         handleClear={handleClear}
       />
+
       <MaintenanceAcceptedModal
         show={showMaintenanceAcceptedModal}
         onClose={() => setShowMaintenanceAcceptedModal(false)}
@@ -288,24 +314,39 @@ const ScanEquipment = () => {
         setEquipment={setEquipment}
         handleClear={handleClear}
       />
+
       <FinishRepairAndReturnModal
         show={showFinishRepairModal}
         onClose={() => setShowFinishRepairModal(false)}
         equipment={equipment}
         handleClear={handleClear}
       />
+
       <MaintenanceCancelledModal
         show={showMaintenanceCancelledModal}
         onClose={() => setShowMaintenanceCancelledModal(false)}
         equipment={equipment}
         handleClear={handleClear}
       />
+
       <RepairFailedReturnModal
         show={showRepairFailedModal}
         onClose={() => setShowRepairFailedModal(false)}
         equipment={equipment}
         handleClear={handleClear}
       />
+
+      <PreventCheckOutModal
+        show={showPreventCheckOutModal}
+        onClose={() => setShowPreventCheckOutModal(false)}
+        status={equipment?.operational_status}
+      />
+
+      <PreventLostActionsModal
+        show={showPreventLostModal}
+        onClose={() => setShowPreventLostModal(false)}
+      />
+
       {/* Search Input */}
       <Card className="p-3 text-center mb-3">
         <div className="d-flex">
@@ -541,9 +582,13 @@ const ScanEquipment = () => {
                     <br />
                     <strong>Status:</strong>{" "}
                     {new Date(equipment.return_datetime) < new Date() ? (
-                      <span className="text-danger fw-bold">❌ Overdue, please contact the holder.</span>
+                      <span className="text-danger fw-bold">
+                        ❌ Overdue, please contact the holder.
+                      </span>
                     ) : (
-                      <span className="text-success fw-bold">✅ Good, not yet overdue</span>
+                      <span className="text-success fw-bold">
+                        ✅ Good, not yet overdue
+                      </span>
                     )}
                   </>
                 ) : (
