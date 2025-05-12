@@ -77,12 +77,17 @@ export default function Equipments() {
   const [filterStatus, setFilterStatus] = useState("");
   const [assignedLabName, setAssignedLabName] = useState("Unknown Laboratory");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [inputPage, setInputPage] = useState(currentPage);
+  const itemsPerPage = 25;
+
   useEffect(() => {
-    fetchEquipments();
+    fetchEquipments(1);
     fetchLaboratories();
   }, []);
 
-  const fetchEquipments = async () => {
+  const fetchEquipments = async (page = 1) => {
     setIsFetching(true);
 
     const user = getLoggedInUser();
@@ -94,7 +99,9 @@ export default function Equipments() {
 
     try {
       const response = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/equipments`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/equipments?page=${page}&limit=${itemsPerPage}`,
         {
           headers: {
             Authorization: `Bearer ${user.token}`,
@@ -102,7 +109,10 @@ export default function Equipments() {
         }
       );
 
-      setEquipments(response.data);
+      setEquipments(response.data.data || []);
+      setTotalPages(Math.ceil(response.data.total / itemsPerPage));
+      setCurrentPage(page);
+      setInputPage(page);
     } catch (err) {
       console.error("Error fetching equipments:", err);
       toast.error("Failed to load equipments.");
@@ -744,7 +754,7 @@ export default function Equipments() {
             <h6 className="text-primary mb-2">Equipment List</h6>
 
             {/* Scrollable Table Container */}
-            <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+            <div style={{ maxHeight: "566px", overflowY: "auto" }}>
               {isFetching ? (
                 <Loading type="spin" color="#007bff" height={40} width={40} />
               ) : equipments.length === 0 ? (
@@ -821,6 +831,51 @@ export default function Equipments() {
               )}
             </div>
           </div>
+          {totalPages > 1 && (
+            <div className="card shadow-sm mt-3 border-0">
+              <div className="card-body py-3 d-flex justify-content-center align-items-center flex-wrap gap-3">
+                <button
+                  className="btn btn-sm btn-primary rounded-pill px-4 shadow-sm"
+                  onClick={() => fetchEquipments(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  ⬅ Prev
+                </button>
+
+                <div className="d-flex align-items-center gap-2">
+                  <span className="fw-semibold">Page</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={inputPage}
+                    onChange={(e) => setInputPage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const page = Number(inputPage);
+                        if (page >= 1 && page <= totalPages) {
+                          fetchEquipments(page);
+                        } else {
+                          setInputPage(currentPage);
+                        }
+                      }
+                    }}
+                    className="form-control form-control-sm text-center shadow-sm"
+                    style={{ width: "70px", borderRadius: "20px" }}
+                  />
+                  <span className="fw-semibold">of {totalPages}</span>
+                </div>
+
+                <button
+                  className="btn btn-sm btn-primary rounded-pill px-4 shadow-sm"
+                  onClick={() => fetchEquipments(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next ➡
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

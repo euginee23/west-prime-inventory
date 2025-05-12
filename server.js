@@ -547,26 +547,21 @@ app.get("/equipments", authenticateToken, async (req, res) => {
 
     const userId = req.user.id;
     const userRole = req.user.role;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 25;
+    const offset = (page - 1) * limit;
 
-    let query = `
-      SELECT 
-        e.*, 
-        ei.img_id, 
-        ei.image, 
-        u.first_name, 
-        u.last_name, 
-        u.user_type, 
-        l.lab_id,
-        l.lab_name, 
-        l.lab_number
+    let baseQuery = `
       FROM equipments e
       LEFT JOIN equipment_images ei ON e.equipment_id = ei.equipment_id
       LEFT JOIN users u ON e.user_id = u.user_id
       LEFT JOIN laboratories l ON e.laboratory_id = l.lab_id
     `;
 
-    let queryParams = [];
+    let whereClause = "";
+    const queryParams = [];
 
+    // If Personnel, restrict by assigned lab
     if (userRole === "Personnel") {
       const [designation] = await connection.execute(
         `SELECT lab_id FROM personnel_designations 
@@ -581,13 +576,36 @@ app.get("/equipments", authenticateToken, async (req, res) => {
           .json({ message: "No active lab assignment found." });
       }
 
-      const assignedLabId = designation[0].lab_id;
-
-      query += " WHERE e.laboratory_id = ?";
-      queryParams.push(assignedLabId);
+      whereClause = "WHERE e.laboratory_id = ?";
+      queryParams.push(designation[0].lab_id);
     }
 
-    const [results] = await connection.execute(query, queryParams);
+    // Get total count
+    const [countRows] = await connection.execute(
+      `SELECT COUNT(DISTINCT e.equipment_id) as total ${baseQuery} ${whereClause}`,
+      queryParams
+    );
+    const total = countRows[0].total;
+
+    // Build final query and parameter list
+    const dataQuery = `
+      SELECT 
+        e.*, 
+        ei.img_id, 
+        ei.image, 
+        u.first_name, 
+        u.last_name, 
+        u.user_type, 
+        l.lab_id,
+        l.lab_name, 
+        l.lab_number
+      ${baseQuery}
+      ${whereClause}
+      ORDER BY e.created_at DESC
+      LIMIT ${limit} OFFSET ${offset} 
+    `;
+
+    const [results] = await connection.query(dataQuery, queryParams);
 
     const equipmentMap = new Map();
 
@@ -607,7 +625,6 @@ app.get("/equipments", authenticateToken, async (req, res) => {
             ? `data:image/jpeg;base64,${row.qr_img.toString("base64")}`
             : null,
           images: [],
-
           user: row.first_name
             ? {
                 first_name: row.first_name,
@@ -615,7 +632,6 @@ app.get("/equipments", authenticateToken, async (req, res) => {
                 user_type: row.user_type,
               }
             : null,
-
           laboratory: row.lab_id
             ? {
                 lab_id: row.lab_id,
@@ -635,9 +651,10 @@ app.get("/equipments", authenticateToken, async (req, res) => {
       }
     });
 
-    const equipments = Array.from(equipmentMap.values());
-
-    res.status(200).json(equipments);
+    res.status(200).json({
+      data: Array.from(equipmentMap.values()),
+      total,
+    });
   } catch (err) {
     console.error("Error fetching equipments:", err);
     res.status(500).json({ message: "Internal server error" });
