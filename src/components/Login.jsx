@@ -2,7 +2,7 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
 import Loading from "react-loading"; 
-import logo from "../assets/west-prime-logo.ico";
+import logo from "../assets/wmsu_logo.png";
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -41,7 +41,7 @@ export default function Login({ onLogin }) {
         <div className="col-12 col-md-5 text-center text-md-start">
           <img
             src={logo}
-            alt="West Prime Horizon Institute Logo"
+            alt="Logo"
             className="img-fluid mb-4 animated fadeIn"
             style={{
               width: "200px",
@@ -49,7 +49,7 @@ export default function Login({ onLogin }) {
               animationDuration: "1s",
             }}
           />
-          <h1 className="fw-bold mb-3 text-shadow">West Prime ICT Equipment Monitoring and Tracking System</h1>
+          <h1 className="fw-bold mb-3 text-shadow">ICT Equipment Monitoring and Tracking System</h1>
           <p className="text-shadow lead">Equipment Monitoring and Tracking System</p>
         </div>
 
